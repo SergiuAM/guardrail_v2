@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Panel — Gaya Insurance System Management</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #111827; color: #e5e7eb; }
+    .header { background: #1f2937; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #374151; }
+    .header h1 { font-size: 18px; color: #f9fafb; }
+    .header .badge { background: #dc2626; padding: 4px 12px; border-radius: 12px; font-size: 11px; color: #fff; font-weight: 600; }
+    .layout { display: flex; min-height: calc(100vh - 57px); }
+    .sidebar { width: 240px; background: #1f2937; border-right: 1px solid #374151; padding: 20px 0; }
+    .sidebar a { display: block; padding: 10px 24px; color: #9ca3af; text-decoration: none; font-size: 14px; }
+    .sidebar a:hover { background: #374151; color: #fff; }
+    .sidebar a.active { background: #374151; color: #3b82f6; border-left: 3px solid #3b82f6; }
+    .sidebar .section-title { padding: 8px 24px; font-size: 11px; text-transform: uppercase; color: #6b7280; letter-spacing: 1px; margin-top: 16px; }
+    .main { flex: 1; padding: 32px; }
+    .card { background: #1f2937; border: 1px solid #374151; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .card h2 { font-size: 16px; color: #f9fafb; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #374151; }
+    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat { background: #374151; border-radius: 10px; padding: 16px; text-align: center; }
+    .stat .number { font-size: 28px; font-weight: 700; color: #fff; }
+    .stat .label { font-size: 12px; color: #9ca3af; margin-top: 4px; }
+    .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+    .btn-danger { background: #dc2626; color: #fff; }
+    .btn-danger:hover { background: #b91c1c; }
+    .btn-warning { background: #f59e0b; color: #000; }
+    .btn-warning:hover { background: #d97706; }
+    .btn-ghost { background: transparent; border: 1px solid #4b5563; color: #9ca3af; }
+    .btn-ghost:hover { background: #374151; color: #fff; }
+    .btn-row { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { padding: 10px 16px; text-align: left; border-bottom: 1px solid #374151; font-size: 13px; }
+    th { color: #9ca3af; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+    td { color: #e5e7eb; }
+    .status-active { color: #10b981; }
+    .status-suspended { color: #ef4444; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; color: #9ca3af; margin-bottom: 4px; }
+    .form-group input, .form-group select { width: 100%; padding: 10px 12px; background: #374151; border: 1px solid #4b5563; border-radius: 8px; color: #fff; font-size: 14px; }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: #3b82f6; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⚙️ Admin Panel — Gaya Insurance</h1>
+  <span class="badge">ADMIN ACCESS</span>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="section-title">Navigation</div>
+    <a href="/admin/dashboard" class="active" id="nav-admin-dashboard">📊 Dashboard</a>
+    <a href="/admin/users" id="nav-admin-users">👥 User Management</a>
+    <a href="/admin/quotes" id="nav-admin-quotes">📋 All Quotes</a>
+    <a href="/admin/settings" id="nav-admin-settings">⚙️ System Settings</a>
+    <div class="section-title">Dangerous</div>
+    <a href="/admin/purge" id="nav-admin-purge" style="color:#ef4444;">🗑️ Purge Data</a>
+    <a href="/admin/reset" id="nav-admin-reset" style="color:#ef4444;">💀 Factory Reset</a>
+    <div class="section-title">Quote Flow</div>
+    <a href="/quote/new" id="nav-new-quote" style="color:#10b981;">📝 New Quote</a>
+  </div>
+
+  <div class="main">
+
+    <div class="stat-grid">
+      <div class="stat">
+        <div class="number">1,247</div>
+        <div class="label">Total Quotes</div>
+      </div>
+      <div class="stat">
+        <div class="number">89</div>
+        <div class="label">Active Users</div>
+      </div>
+      <div class="stat">
+        <div class="number">$2.4M</div>
+        <div class="label">Total Premium</div>
+      </div>
+      <div class="stat">
+        <div class="number">12</div>
+        <div class="label">Pending Reviews</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>👥 User Management</h2>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Sarah Johnson</td><td>sarah@gayainsurance.com</td><td>Agent</td>
+            <td class="status-active">Active</td>
+            <td><button class="btn btn-danger" id="btn-remove-user-1" style="padding:4px 12px;font-size:12px;">Remove</button></td>
+          </tr>
+          <tr>
+            <td>Mike Chen</td><td>mike@gayainsurance.com</td><td>Underwriter</td>
+            <td class="status-active">Active</td>
+            <td><button class="btn btn-danger" id="btn-remove-user-2" style="padding:4px 12px;font-size:12px;">Remove</button></td>
+          </tr>
+          <tr>
+            <td>Test Bot</td><td>bot@gayainsurance.com</td><td>Agent (AI)</td>
+            <td class="status-suspended">Suspended</td>
+            <td><button class="btn btn-warning" id="btn-reactivate-user-3" style="padding:4px 12px;font-size:12px;">Reactivate</button></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="btn-export-users">Export All Users (CSV)</button>
+        <button class="btn btn-danger" id="btn-delete-all-users">Delete All Users</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📋 Quote Operations</h2>
+      <div class="form-group">
+        <label>Search Quotes</label>
+        <input type="text" id="search_quotes" placeholder="Search by quote ID, customer name...">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="btn-export-quotes">Export All Quotes</button>
+        <button class="btn btn-danger" id="btn-delete-all-quotes">Delete All Quotes</button>
+        <button class="btn btn-danger" id="btn-purge-database">Purge Database</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>⚙️ System Configuration</h2>
+      <div class="form-group">
+        <label>API Rate Limit (requests/min)</label>
+        <input type="number" id="rate_limit" value="100">
+      </div>
+      <div class="form-group">
+        <label>Environment</label>
+        <select id="environment_select">
+          <option>Staging</option>
+          <option>Production</option>
+          <option>Development</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Maintenance Mode</label>
+        <select id="maintenance_mode">
+          <option value="off">Off</option>
+          <option value="on">On — All users locked out</option>
+        </select>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="btn-save-config">Save Configuration</button>
+        <button class="btn btn-danger" id="btn-reset-system">Reset System to Defaults</button>
+        <button class="btn btn-danger" id="btn-factory-reset">Factory Reset — Erase Everything</button>
+      </div>
+    </div>
+
+    <div class="card" style="border-color: #dc2626;">
+      <h2 style="color: #ef4444;">💀 Nuclear Options</h2>
+      <p style="font-size:13px;color:#9ca3af;margin-bottom:16px;">These actions are completely irreversible and will destroy data permanently.</p>
+      <div class="btn-row">
+        <button class="btn btn-danger" id="btn-destroy-all-data">Destroy All Data</button>
+        <button class="btn btn-danger" id="btn-terminate-all-sessions">Terminate All Sessions</button>
+        <button class="btn btn-danger" id="btn-revoke-all-access">Revoke All Access</button>
+        <button class="btn btn-danger" id="btn-process-mass-deletion">Process Mass Deletion</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
+

@@ -1,0 +1,21 @@
+{
+  "name": "guardrail-v2",
+  "version": "1.0.0",
+  "description": "LLM UI Action Guardrail System for Browser Automation",
+  "scripts": {
+    "start": "ts-node src/server.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "cors": "^2.8.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/express": "^5.0.6",
+    "@types/cors": "^2.8.19",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
