@@ -219,7 +219,7 @@ function detectRequiredFromDOM(el) {
     if (child === el) continue;
     const tag = child.tagName;
     if (tag === 'LABEL' || tag === 'SPAN' || (tag === 'DIV' && (child.textContent || '').length < 40)) {
-      const txt = child.textContent || '';
+        const txt = child.textContent || '';
       if (txt.includes('*')) {
         // Proximity check: label must be near the field (< 50px vertically)
         const childRect = child.getBoundingClientRect();
@@ -420,7 +420,7 @@ function executeAction(actionData) {
     }
 
     if (matched) {
-      el.dispatchEvent(new Event('change', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
       el.dispatchEvent(new Event('input', { bubbles: true }));
       return true;
     }
@@ -490,7 +490,7 @@ function createPanel() {
         <span class="gg-toggle-switch"></span>
         <span>Manual mode (approve each action)</span>
       </label>
-    </div>
+      </div>
     <div class="gg-command-bar">
       <input type="text" id="gg-command-input" class="gg-command-input" placeholder="Tell agent what to do… e.g. 'Click Delete All Quotes'" />
       <button class="gg-btn gg-btn-command" id="gg-command-btn">Send</button>
@@ -538,8 +538,8 @@ function createPanel() {
 
 async function agentStepSingle(snapshot) {
   const res = await fetch(API_BASE + '/api/evaluate-live', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ pageSnapshot: snapshot, sessionId }),
   });
   return res.json();
@@ -576,28 +576,18 @@ async function handleRunAgent() {
 
     currentSnapshot = scrapePage();
 
-    // ── If Gaya paste button is available and not yet used, click it first ──
+    // ── Check if Gaya paste button is still available (not yet clicked) ──
     const hasGayaPaste = currentSnapshot.buttons &&
       currentSnapshot.buttons.some(b => b.id === 'gaya-super-paste');
 
+    // If Gaya paste is available, let Claude decide in single-step mode (skip batch)
+    // Claude will see the button and propose clicking it
     if (hasGayaPaste && !gayaPasteAttempted) {
-      gayaPasteAttempted = true;
-      addLogMessage('🟢 Gaya paste detected — triggering auto-fill…', 'info');
-      const clicked = clickGayaPaste();
-      if (clicked) {
-        await sleep(GAYA_PASTE_WAIT_MS);
-        addLogMessage('✅ Gaya paste executed — checking remaining fields…', 'success');
-      } else {
-        addLogMessage('⚠️ Could not click Gaya paste button.', 'warning');
-      }
-      continue;  // Re-scrape to see what Gaya filled
+      // Fall through to single-step mode below — Claude decides
     }
-
-    // ── If there are still empty required fields, batch-fill them ──
-    const hasEmptyFields = !batchDone && currentSnapshot.fields &&
-      currentSnapshot.fields.some(f => f.attributes?.required === 'true' && (!f.attributes?.value || f.attributes.value.trim() === ''));
-
-    if (hasEmptyFields) {
+    // ── If Gaya paste already used (or absent), batch-fill empty required fields ──
+    else if (!batchDone && currentSnapshot.fields &&
+      currentSnapshot.fields.some(f => f.attributes?.required === 'true' && (!f.attributes?.value || f.attributes.value.trim() === ''))) {
       addLogMessage('📋 Empty fields detected — batch-filling all at once…', 'info');
       clearHighlights();
 
@@ -677,6 +667,11 @@ async function handleRunAgent() {
       const aType = data.action.type;
       const isGayaPaste = data.action.targetId === 'gaya-super-paste';
 
+      // If Claude didn't propose Gaya paste even though button is there, move on
+      if (hasGayaPaste && !gayaPasteAttempted && !isGayaPaste) {
+        gayaPasteAttempted = true;  // Don't wait for paste forever
+      }
+
       recordStep(data);
 
       const verdict = data.decision.verdict;
@@ -705,7 +700,8 @@ async function handleRunAgent() {
           if (isGayaPaste && clicked) {
             addLogMessage('🟢 Gaya paste triggered — waiting for fields to fill…', 'info');
             await sleep(GAYA_PASTE_WAIT_MS);
-            batchDone = false;  // Re-enable batch after paste
+            gayaPasteAttempted = true;  // Don't propose paste again
+            batchDone = false;          // Re-enable batch for remaining fields
             nonproductiveSteps = 0;
           } else if (clicked) {
             nonproductiveSteps = 0;
@@ -768,10 +764,10 @@ async function handleRunAgent() {
     addLogMessage(`🏁 Agent reached max steps (${MAX_AGENT_STEPS}).`, 'warning');
   }
 
-  addLogMessage(
+    addLogMessage(
     `📊 Done — ${stats.total} actions · ✅ ${stats.allowed} allowed · ❌ ${stats.blocked} blocked · ⚠️ ${stats.flagged} flagged`,
-    'info'
-  );
+      'info'
+    );
 
   agentRunning = false;
   document.getElementById('gg-run-agent-btn').style.display = '';
@@ -856,11 +852,11 @@ function showLoading(text) {
 }
 
 function recordStep(data) {
-  stats.total++;
+      stats.total++;
   if (data.decision.verdict === 'ALLOW') stats.allowed++;
   else if (data.decision.verdict === 'BLOCK') stats.blocked++;
-  else stats.flagged++;
-  updateStatsUI();
+      else stats.flagged++;
+      updateStatsUI();
   renderEntry(stepCount, data);
 
   const state = data.decision.verdict === 'ALLOW' ? 'allowed'
@@ -902,7 +898,7 @@ async function handleCommand() {
       return;
     }
 
-    sessionId = data.sessionId;
+      sessionId = data.sessionId;
     recordStep(data);
 
     const cmdVerdict = data.decision.verdict;
@@ -938,8 +934,8 @@ async function handleCommand() {
       addLogMessage(`🛑 Guardrail blocked this command!`, 'error');
     }
 
-    await sleep(300);
-    clearHighlights();
+      await sleep(300);
+      clearHighlights();
   } catch (err) {
     loading.remove();
     addLogMessage('⚠️ Connection error: ' + err.message, 'error');
