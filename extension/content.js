@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const API_BASE = 'http://localhost:3200';
-const MAX_AGENT_STEPS = 25;
+const MAX_AGENT_STEPS = 1000;
 const GAYA_PASTE_WAIT_MS = 4000;
 let sessionId = null;
 let stepCount = 0;
