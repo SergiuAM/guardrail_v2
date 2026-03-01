@@ -83,25 +83,25 @@ function recordEntry(ctx: AgentContext, action: any, decision: any) {
 
 function formatActionResponse(action: any) {
   return {
-    id: action.id,
-    type: action.type,
-    targetId: action.target.id,
-    targetText: action.target.text,
-    targetTag: action.target.tag,
-    targetClasses: action.target.classes,
-    value: action.value,
-    description: action.description,
+      id: action.id,
+      type: action.type,
+      targetId: action.target.id,
+      targetText: action.target.text,
+      targetTag: action.target.tag,
+      targetClasses: action.target.classes,
+      value: action.value,
+      description: action.description,
   };
 }
 
 function formatDecisionResponse(decision: any) {
   return {
-    verdict: decision.verdict,
-    riskLevel: decision.riskLevel,
-    reasoning: decision.reasoning,
-    violations: decision.violations,
+        verdict: decision.verdict,
+        riskLevel: decision.riskLevel,
+        reasoning: decision.reasoning,
+        violations: decision.violations,
   };
-}
+  }
 
 // ═══════════════════════════════════════════════════════════════
 // ENDPOINT 1: Single step — Claude proposes one action
@@ -198,11 +198,11 @@ app.post('/api/evaluate-command', async (req, res) => {
     const decision = engine.evaluate(action, ctx);
     recordEntry(ctx, action, decision);
 
-    res.json({
+  res.json({
       action: formatActionResponse(action),
       decision: formatDecisionResponse(decision),
-      sessionId,
-    });
+    sessionId,
+  });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

@@ -567,6 +567,7 @@ async function handleRunAgent() {
   let batchDone = false;
   let nonproductiveSteps = 0;  // Tracks blocks + failed fills in a row
   let gayaPasteAttempted = false;  // Ensures we try Gaya paste once before batch
+  let lastFieldFingerprint = '';  // Track page content changes (fields present)
 
   for (let step = 0; step < MAX_AGENT_STEPS; step++) {
     if (!agentRunning) {
@@ -575,6 +576,16 @@ async function handleRunAgent() {
     }
 
     currentSnapshot = scrapePage();
+
+    // ── Detect page change by comparing field IDs (works even if URL doesn't change) ──
+    const fieldFingerprint = (currentSnapshot.fields || []).map(f => f.id).sort().join('|');
+    if (lastFieldFingerprint && fieldFingerprint !== lastFieldFingerprint) {
+      addLogMessage('📄 New form detected — resetting…', 'info');
+      gayaPasteAttempted = false;
+      batchDone = false;
+      nonproductiveSteps = 0;
+    }
+    lastFieldFingerprint = fieldFingerprint;
 
     // ── Check if Gaya paste button is still available (not yet clicked) ──
     const hasGayaPaste = currentSnapshot.buttons &&
