@@ -545,15 +545,6 @@ async function agentStepSingle(snapshot) {
   return res.json();
 }
 
-async function agentStepBatch(snapshot) {
-  const res = await fetch(API_BASE + '/api/evaluate-live-batch', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pageSnapshot: snapshot, sessionId }),
-  });
-  return res.json();
-}
-
 async function handleRunAgent() {
   if (agentRunning) return;
   agentRunning = true;
@@ -564,10 +555,8 @@ async function handleRunAgent() {
   document.getElementById('gg-stop-agent-btn').style.display = '';
 
   addLogMessage('🤖 Agent starting — Claude decides everything…', 'info');
-  let batchDone = false;
-  let nonproductiveSteps = 0;  // Tracks blocks + failed fills in a row
-  let gayaPasteAttempted = false;  // Ensures we try Gaya paste once before batch
-  let lastFieldFingerprint = '';  // Track page content changes (fields present)
+  let nonproductiveSteps = 0;
+  let lastFieldFingerprint = '';
 
   for (let step = 0; step < MAX_AGENT_STEPS; step++) {
     if (!agentRunning) {
@@ -577,94 +566,15 @@ async function handleRunAgent() {
 
     currentSnapshot = scrapePage();
 
-    // ── Detect page change by comparing field IDs (works even if URL doesn't change) ──
+    // ── Detect page change by field fingerprint (works even if URL stays same) ──
     const fieldFingerprint = (currentSnapshot.fields || []).map(f => f.id).sort().join('|');
     if (lastFieldFingerprint && fieldFingerprint !== lastFieldFingerprint) {
       addLogMessage('📄 New form detected — resetting…', 'info');
-      gayaPasteAttempted = false;
-      batchDone = false;
       nonproductiveSteps = 0;
     }
     lastFieldFingerprint = fieldFingerprint;
 
-    // ── Check if Gaya paste button is still available (not yet clicked) ──
-    const hasGayaPaste = currentSnapshot.buttons &&
-      currentSnapshot.buttons.some(b => b.id === 'gaya-super-paste');
-
-    // If Gaya paste is available, let Claude decide in single-step mode (skip batch)
-    // Claude will see the button and propose clicking it
-    if (hasGayaPaste && !gayaPasteAttempted) {
-      // Fall through to single-step mode below — Claude decides
-    }
-    // ── If Gaya paste already used (or absent), batch-fill empty required fields ──
-    else if (!batchDone && currentSnapshot.fields &&
-      currentSnapshot.fields.some(f => f.attributes?.required === 'true' && (!f.attributes?.value || f.attributes.value.trim() === ''))) {
-      addLogMessage('📋 Empty fields detected — batch-filling all at once…', 'info');
-      clearHighlights();
-
-      const batchLoading = showLoading('Batch — Claude proposing all fills…');
-      try {
-        const batchData = await agentStepBatch(currentSnapshot);
-        batchLoading.remove();
-
-        if (batchData.error) {
-          addLogMessage('⚠️ Batch error: ' + batchData.error, 'error');
-          break;
-        }
-
-        sessionId = batchData.sessionId || sessionId;
-
-        if (batchData.results && batchData.results.length > 0) {
-          addLogMessage(
-            `📋 Batch: ${batchData.totalActions} fills proposed · ✅ ${batchData.allowed} allowed · ❌ ${batchData.blocked} blocked`,
-            'info'
-          );
-
-          let filledCount = 0;
-          for (const r of batchData.results) {
-            if (!agentRunning) break;
-            stepCount++;
-            recordStep(r);
-
-            const bv = r.decision.verdict;
-            const batchNeedsConfirm = bv === 'FLAG' || (confirmAll && bv === 'BLOCK');
-            let batchCanExecute = bv !== 'BLOCK';
-
-            if (batchNeedsConfirm) {
-              const choice = await waitForUserDecision(r);
-              if (choice === 'approve') {
-                batchCanExecute = true;
-                if (bv === 'BLOCK') addLogMessage(`⚠️ Override: ${r.action.targetText || r.action.targetId}`, 'warning');
-              } else {
-                addLogMessage(`⏭ Skipped: ${r.action.targetText || r.action.targetId}`, 'warning');
-                batchCanExecute = false;
-              }
-            }
-
-            if (batchCanExecute) {
-              const ok = executeAction(r.action);
-              if (ok) filledCount++;
-            }
-
-            await sleep(150);
-            clearHighlights();
-          }
-          addLogMessage(`✅ Batch complete — ${filledCount} fields filled.`, 'success');
-        } else {
-          addLogMessage('ℹ️ Claude proposed no fills — moving on.', 'info');
-        }
-
-        batchDone = true;
-        await sleep(400);
-        continue;  // Re-scrape and move to next step (clicks etc.)
-      } catch (err) {
-        batchLoading.remove();
-        addLogMessage('⚠️ Connection error: ' + err.message, 'error');
-        break;
-      }
-    }
-
-    // ── Single-step mode (clicks, navigation, wait) ──
+    // ── Single-step: Claude proposes one action at a time ──
     stepCount++;
     const loading = showLoading(`Step ${stepCount} — Claude is thinking…`);
 
@@ -677,11 +587,6 @@ async function handleRunAgent() {
 
       const aType = data.action.type;
       const isGayaPaste = data.action.targetId === 'gaya-super-paste';
-
-      // If Claude didn't propose Gaya paste even though button is there, move on
-      if (hasGayaPaste && !gayaPasteAttempted && !isGayaPaste) {
-        gayaPasteAttempted = true;  // Don't wait for paste forever
-      }
 
       recordStep(data);
 
@@ -705,18 +610,15 @@ async function handleRunAgent() {
       }
 
       if (canExecute) {
+        nonproductiveSteps = 0;
+
         // ── CLICK actions (Gaya paste, Next, Submit, etc.) ──
         if (aType === 'click') {
           const clicked = executeClickAction(data.action);
           if (isGayaPaste && clicked) {
             addLogMessage('🟢 Gaya paste triggered — waiting for fields to fill…', 'info');
             await sleep(GAYA_PASTE_WAIT_MS);
-            gayaPasteAttempted = true;  // Don't propose paste again
-            batchDone = false;          // Re-enable batch for remaining fields
-            nonproductiveSteps = 0;
           } else if (clicked) {
-            nonproductiveSteps = 0;
-            // If this was a submission click, stop — page should navigate or user takes over
             const targetText = (data.action.targetText || '').toLowerCase();
             const isSubmit = /submit|finalize|complete|bind|issue|place order|confirm/i.test(targetText);
             if (isSubmit) {
@@ -730,11 +632,10 @@ async function handleRunAgent() {
           }
         }
 
-        // ── FILL/SELECT (single, after batch already done) ──
+        // ── FILL / SELECT ──
         else if (aType === 'fill' || aType === 'select') {
           const ok = executeAction(data.action);
-          if (ok) nonproductiveSteps = 0;
-          else nonproductiveSteps++;
+          if (!ok) nonproductiveSteps++;
         }
 
         // ── WAIT → agent says it's done ──
@@ -745,16 +646,14 @@ async function handleRunAgent() {
 
       } else if (verdict === 'BLOCK' && !confirmAll) {
         addLogMessage(`🛑 Blocked: ${data.action.description}`, 'warning');
-
-        // If a click/submit was blocked, the agent is done — human must take over
         if (aType === 'click' || aType === 'navigate') {
           addLogMessage('🏁 Page complete — submission/navigation requires human action.', 'info');
           break;
         }
         nonproductiveSteps++;
+      } else {
+        nonproductiveSteps++;
       }
-      // User-skipped actions also count as non-productive
-      else { nonproductiveSteps++; }
 
       if (nonproductiveSteps >= 3) {
         addLogMessage('🚫 Agent stuck — no productive actions possible. Stopping.', 'error');
