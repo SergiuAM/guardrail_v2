@@ -557,6 +557,7 @@ async function handleRunAgent() {
   addLogMessage('🤖 Agent starting — Claude decides everything…', 'info');
   let nonproductiveSteps = 0;
   let lastFieldFingerprint = '';
+  let gayaPasteUsedOnForm = false;  // Tracks if Gaya paste was already clicked on this form
 
   for (let step = 0; step < MAX_AGENT_STEPS; step++) {
     if (!agentRunning) {
@@ -571,8 +572,14 @@ async function handleRunAgent() {
     if (lastFieldFingerprint && fieldFingerprint !== lastFieldFingerprint) {
       addLogMessage('📄 New form detected — resetting…', 'info');
       nonproductiveSteps = 0;
+      gayaPasteUsedOnForm = false;  // New form → allow Gaya paste again
     }
     lastFieldFingerprint = fieldFingerprint;
+
+    // ── Hide Gaya paste button from snapshot if already used on this form ──
+    if (gayaPasteUsedOnForm && currentSnapshot.buttons) {
+      currentSnapshot.buttons = currentSnapshot.buttons.filter(b => b.id !== 'gaya-super-paste');
+    }
 
     // ── Single-step: Claude proposes one action at a time ──
     stepCount++;
@@ -616,6 +623,7 @@ async function handleRunAgent() {
         if (aType === 'click') {
           const clicked = executeClickAction(data.action);
           if (isGayaPaste && clicked) {
+            gayaPasteUsedOnForm = true;  // Don't show Gaya paste to Claude again on this form
             addLogMessage('🟢 Gaya paste triggered — waiting for fields to fill…', 'info');
             await sleep(GAYA_PASTE_WAIT_MS);
           } else if (clicked) {
