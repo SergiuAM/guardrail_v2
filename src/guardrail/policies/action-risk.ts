@@ -50,6 +50,32 @@ export function evaluateActionRisk(
   const text = action.target.text;
   const targetClasses = action.target.classes?.join(' ') ?? '';
 
+  // ── Field overwrite detection: FLAG if trying to fill a field that already has a value ──
+  if (action.type === 'fill' || action.type === 'select') {
+    const targetField = page.fields.find(f => f.id === action.target.id);
+    if (targetField) {
+      const currentValue = (targetField.attributes?.value ?? '').trim();
+      // Only flag if the field has a meaningful human-entered value (not placeholder/default)
+      const isPlaceholder = !currentValue
+        || /^--\s*select/i.test(currentValue)
+        || /^choose/i.test(currentValue)
+        || /^please select/i.test(currentValue)
+        || /^[0-9]{10,}$/.test(currentValue)         // Bubble numeric IDs
+        || /^[a-f0-9]{24,}$/i.test(currentValue)     // Hash IDs
+        || /^PLACEHOLDER/i.test(currentValue);
+
+      if (currentValue !== '' && !isPlaceholder) {
+        violations.push({
+          policyId: 'action-risk-field-overwrite',
+          policyName: 'Field Overwrite Detection',
+          severity: 'medium',
+          message: `Field "${targetField.text}" already has value "${currentValue}". Agent is attempting to overwrite it with "${action.value ?? ''}".`,
+          suggestion: 'Only overwrite filled fields if explicitly requested by the user.',
+        });
+      }
+    }
+  }
+
   if (action.type === 'click' && matchesPatterns(text, DESTRUCTIVE_PATTERNS)) {
     violations.push({
       policyId: 'action-risk-destructive',

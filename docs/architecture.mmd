@@ -1,0 +1,22 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '16px' }}}%%
+
+flowchart LR
+    BROWSER["🌐 Browser<br/><i>Chrome Extension<br/>scrapes page</i>"]
+    SERVER["⚙️ Server<br/><i>Express API</i>"]
+    CLAUDE["🤖 Claude<br/><i>Proposes action</i>"]
+    GUARDRAIL["🛡️ Guardrail<br/><i>7 safety policies</i>"]
+    USER["👤 User<br/><i>Approve / Skip<br/>Override</i>"]
+
+    BROWSER -->|"Page snapshot"| SERVER
+    SERVER -->|"Context + prompt"| CLAUDE
+    CLAUDE -->|"Proposed action"| GUARDRAIL
+    GUARDRAIL -->|"✅ ALLOW  ⚠️ FLAG  ❌ BLOCK"| SERVER
+    SERVER -->|"Action + verdict"| BROWSER
+
+    USER -->|"⚠️ FLAG / ❌ BLOCK<br/>Approve or Skip"| BROWSER
+
+    style BROWSER fill:#0c4a6e,stroke:#0284c7,color:#f0f9ff
+    style SERVER fill:#1e293b,stroke:#475569,color:#f8fafc
+    style CLAUDE fill:#4c1d95,stroke:#7c3aed,color:#f5f3ff
+    style GUARDRAIL fill:#991b1b,stroke:#dc2626,color:#fef2f2
+    style USER fill:#713f12,stroke:#f59e0b,color:#fefce8
