@@ -557,7 +557,8 @@ async function handleRunAgent() {
   addLogMessage('🤖 Agent starting — Claude decides everything…', 'info');
   let nonproductiveSteps = 0;
   let lastFieldFingerprint = '';
-  let gayaPasteUsedOnForm = false;  // Tracks if Gaya paste was already clicked on this form
+  let gayaPasteUsedOnForm = false;
+  const completedForms = new Set();  // Fingerprints of forms we already worked on
 
   for (let step = 0; step < MAX_AGENT_STEPS; step++) {
     if (!agentRunning) {
@@ -570,9 +571,17 @@ async function handleRunAgent() {
     // ── Detect page change by field fingerprint (works even if URL stays same) ──
     const fieldFingerprint = (currentSnapshot.fields || []).map(f => f.id).sort().join('|');
     if (lastFieldFingerprint && fieldFingerprint !== lastFieldFingerprint) {
+      // Mark the previous form as completed
+      completedForms.add(lastFieldFingerprint);
       addLogMessage('📄 New form detected — resetting…', 'info');
       nonproductiveSteps = 0;
-      gayaPasteUsedOnForm = false;  // New form → allow Gaya paste again
+      gayaPasteUsedOnForm = false;
+
+      // If we've seen this form before → stop (we're looping)
+      if (completedForms.has(fieldFingerprint)) {
+        addLogMessage('🏁 Agent returned to a previously completed form — stopping.', 'success');
+        break;
+      }
     }
     lastFieldFingerprint = fieldFingerprint;
 
