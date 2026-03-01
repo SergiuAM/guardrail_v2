@@ -24,9 +24,9 @@ export function evaluateLoopRisk(
     violations.push({
       policyId: 'loop-identical-actions',
       policyName: 'Identical Action Loop Detection',
-      severity: 'high',
-      message: `Action "${proposedAction.description}" has been attempted ${recentIdentical.length} times consecutively. Possible infinite loop.`,
-      suggestion: 'Break the loop. Try an alternative action or escalate to human.',
+      severity: 'medium',
+      message: `Action "${proposedAction.description}" has been attempted ${recentIdentical.length} times. Possible loop.`,
+      suggestion: 'Skip this action and try something else, or advance to the next page.',
     });
   }
 

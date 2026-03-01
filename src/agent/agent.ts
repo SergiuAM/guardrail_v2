@@ -30,9 +30,10 @@ DECISION LOGIC — think step by step:
 RULES:
 - Only propose ONE action at a time
 - After clicking Gaya paste, it disappears — do NOT look for it again, move on to filling remaining fields
-- If most fields are filled and only optional fields remain empty, proceed to click Next
-- For select/dropdown: pick from the available OPTIONS listed
-- For navigation: click "Products →", "Next", "Continue", or similar advancement buttons
+- NEVER try the same action twice. If you already attempted a field and it didn't work, SKIP it and move on.
+- If all REQUIRED fields are filled, click the navigation button immediately — do NOT try to fill optional empty fields (Suffix, Middle Initial, etc.)
+- For select/dropdown: pick from the available OPTIONS listed. If no option fits, SKIP the field.
+- For navigation: click "Products →", "Next", "Continue", "Additional Details →", or similar advancement buttons
 - The guardrail system evaluates every action — feel free to propose risky actions if they seem right`;
 
 const COMMAND_SYSTEM_PROMPT = `You are a browser automation agent. The user has given you a DIRECT COMMAND to execute on the page.
