@@ -136,49 +136,7 @@ app.post('/api/evaluate-live', async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// ENDPOINT 2: Batch — Claude proposes ALL fill/select actions
-// ═══════════════════════════════════════════════════════════════
-app.post('/api/evaluate-live-batch', async (req, res) => {
-  const { pageSnapshot, sessionId: reqSessionId } = req.body;
-
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return void res.status(400).json({ error: 'ANTHROPIC_API_KEY not set. Add it to guardrail_v2/.env' });
-  }
-  if (!pageSnapshot) {
-    return void res.status(400).json({ error: 'No pageSnapshot provided' });
-  }
-
-  const page = snapshotToPageState(pageSnapshot);
-  const { ctx, sessionId } = getOrCreateSession(page, reqSessionId, 'batch');
-
-  try {
-    const actions = await agent.proposeBatchActions(ctx);
-    const results: any[] = [];
-
-    for (const action of actions) {
-      const decision = engine.evaluate(action, ctx);
-      recordEntry(ctx, action, decision);
-      results.push({
-        action: formatActionResponse(action),
-        decision: formatDecisionResponse(decision),
-      });
-    }
-
-    res.json({
-      results,
-      totalActions: results.length,
-      allowed: results.filter(r => r.decision.verdict === 'ALLOW').length,
-      blocked: results.filter(r => r.decision.verdict === 'BLOCK').length,
-      flagged: results.filter(r => r.decision.verdict === 'FLAG').length,
-      sessionId,
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ═══════════════════════════════════════════════════════════════
-// ENDPOINT 3: Command — user tells agent what to do
+// ENDPOINT 2: Command — user tells agent what to do
 // ═══════════════════════════════════════════════════════════════
 app.post('/api/evaluate-command', async (req, res) => {
   const { pageSnapshot, command, sessionId: reqSessionId } = req.body;
@@ -209,7 +167,7 @@ app.post('/api/evaluate-command', async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// ENDPOINT 4: Reset sessions
+// ENDPOINT 3: Reset sessions
 // ═══════════════════════════════════════════════════════════════
 app.post('/api/reset', (_req, res) => {
   Object.keys(sessions).forEach(k => delete sessions[k]);

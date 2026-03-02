@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const API_BASE = 'http://localhost:3200';
-const MAX_AGENT_STEPS = 25;
+const MAX_AGENT_STEPS = 1000;
 const GAYA_PASTE_WAIT_MS = 4000;
 let sessionId = null;
 let stepCount = 0;
@@ -41,15 +41,25 @@ function scrapePage() {
     const label = findLabel(el);
     const id = el.id || el.name || `field_${i}`;
 
-    // Required detection: standard attr OR * in label OR * in nearby DOM text
-    let required = el.required || el.getAttribute('aria-required') === 'true' || label.includes('*');
+    // Required detection: standard attr, OR * in label if label is clean (single *)
+    let required = el.required || el.getAttribute('aria-required') === 'true';
+    if (!required) {
+      // Only trust * in label if exactly one * (avoids concatenated Bubble labels)
+      const starCount = (label.match(/\*/g) || []).length;
+      if (starCount === 1) required = true;
+    }
     if (!required) {
       required = detectRequiredFromDOM(el);
     }
 
-    // Value: filter out Bubble.io placeholder IDs
+    // Value: filter out Bubble.io placeholder IDs and select defaults
     let value = el.value || '';
     if (isBubblePlaceholder(value)) value = '';
+    if (el.tagName === 'SELECT') {
+      // Treat default/placeholder select options as empty
+      const selText = el.options?.[el.selectedIndex]?.text || '';
+      if (el.selectedIndex <= 0 || /^--\s*|^select|^choose|^please/i.test(selText.trim())) value = '';
+    }
 
     // Placeholder: also filter Bubble IDs
     let placeholder = el.placeholder || '';
@@ -150,6 +160,10 @@ function scrapePage() {
   const errorMessages = [];
   document.querySelectorAll('.error, .invalid, [class*="error" i], [aria-invalid="true"]').forEach(el => {
     if (el.closest('#gaya-guardrail-panel')) return;
+    // Skip hidden/invisible error elements
+    const rect = el.getBoundingClientRect();
+    const style = window.getComputedStyle(el);
+    if (rect.width === 0 || rect.height === 0 || style.display === 'none' || style.visibility === 'hidden') return;
     const t = el.textContent?.trim();
     if (t && t.length > 2 && t.length < 200) errorMessages.push(t);
   });
@@ -175,56 +189,43 @@ function scrapePage() {
 
 function isBubblePlaceholder(text) {
   if (!text) return false;
-  return /^PLACEHOLDER_\d+|^[0-9]{10,}|^[a-f0-9]{24,}$/i.test(text.trim());
+  const t = text.trim();
+  // Bubble.io placeholder IDs, long numbers, UUIDs, hashes
+  if (/^PLACEHOLDER_/i.test(t)) return true;
+  if (/^[0-9]{10,}$/.test(t)) return true;           // Long numeric IDs (timestamps)
+  if (/^[a-f0-9]{24,}$/i.test(t)) return true;       // MongoDB-style hashes
+  if (/^[a-f0-9]{8}-[a-f0-9]{4}-/i.test(t)) return true;  // UUIDs
+  if (/^1[0-9]{12}$/.test(t)) return true;            // Unix timestamp in ms
+  return false;
 }
 
 function isGoodLabel(text) {
-  if (!text || text.length < 2 || text.length > 80) return false;
+  if (!text || text.length < 2 || text.length > 60) return false;
   if (isBubblePlaceholder(text)) return false;
   if (/^[^a-zA-Z]*$/.test(text)) return false;
+  // Reject concatenated labels (multiple field names glued together)
+  const colonCount = (text.match(/:/g) || []).length;
+  if (colonCount > 1) return false;
   return true;
 }
 
 function detectRequiredFromDOM(el) {
-  // Walk up a few levels and look for * near this field
-  let container = el.parentElement;
-  for (let depth = 0; depth < 4 && container; depth++) {
-    // Check if container or its direct text has *
-    const directText = Array.from(container.childNodes)
-      .filter(n => n.nodeType === 3)
-      .map(n => n.textContent)
-      .join('');
-    if (/\*/.test(directText)) return true;
+  // Check the immediate container for * markers that are CLOSE to this field
+  const container = el.parentElement;
+  if (!container) return false;
+  const elRect = el.getBoundingClientRect();
 
-    // Check siblings for * markers
-    let sib = container.previousElementSibling;
-    for (let s = 0; s < 2 && sib; s++) {
-      const txt = sib.textContent || '';
-      if (txt.includes('*') && txt.length < 60 && sib.getBoundingClientRect().height > 0) {
-        // Make sure it's a label-like element with *, not just random text
-        if (/:\s*\*|^\*|\*\s*$/.test(txt) || /required/i.test(txt)) return true;
-        // Also check if the text ends with :* or has * right after a word
-        if (/\w\s*\*/.test(txt)) return true;
-      }
-      sib = sib.previousElementSibling;
-    }
-
-    // Check parent's previous sibling
-    if (container.parentElement) {
-      const parent = container.parentElement;
-      const children = Array.from(parent.children);
-      const myIdx = children.indexOf(container);
-      for (let ci = myIdx - 1; ci >= Math.max(0, myIdx - 2); ci--) {
-        const child = children[ci];
-        if (child.querySelector && child.querySelector('input, select, textarea')) break;
+  for (const child of container.children) {
+    if (child === el) continue;
+    const tag = child.tagName;
+    if (tag === 'LABEL' || tag === 'SPAN' || (tag === 'DIV' && (child.textContent || '').length < 40)) {
         const txt = child.textContent || '';
-        if (txt.includes('*') && txt.length < 60) {
-          if (/\w\s*\*|\*\s*$|:\s*\*/.test(txt)) return true;
-        }
+      if (txt.includes('*')) {
+        // Proximity check: label must be near the field (< 50px vertically)
+        const childRect = child.getBoundingClientRect();
+        if (childRect.height > 0 && Math.abs(childRect.top - elRect.top) < 50) return true;
       }
     }
-
-    container = container.parentElement;
   }
   return false;
 }
@@ -384,6 +385,7 @@ function executeAction(actionData) {
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
     el.dispatchEvent(new Event('blur', { bubbles: true }));
+    return true;
   } else if (actionData.type === 'select' && actionData.value && el.tagName === 'SELECT') {
     const wanted = actionData.value.toLowerCase().trim();
     let matched = false;
@@ -418,10 +420,12 @@ function executeAction(actionData) {
     }
 
     if (matched) {
-      el.dispatchEvent(new Event('change', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
       el.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
     }
   }
+  return false;
 }
 
 function clickGayaPaste() {
@@ -486,7 +490,7 @@ function createPanel() {
         <span class="gg-toggle-switch"></span>
         <span>Manual mode (approve each action)</span>
       </label>
-    </div>
+      </div>
     <div class="gg-command-bar">
       <input type="text" id="gg-command-input" class="gg-command-input" placeholder="Tell agent what to do… e.g. 'Click Delete All Quotes'" />
       <button class="gg-btn gg-btn-command" id="gg-command-btn">Send</button>
@@ -497,8 +501,8 @@ function createPanel() {
         <div class="gg-log-empty-text">
           Click <strong>▶ Run Agent</strong> to start.<br>
           The LLM agent will autonomously:<br>
-          1. Trigger <strong>Gaya Paste</strong> to fill fields<br>
-          2. Propose next actions (click Next, Submit…)<br>
+          1. Scrape the page and decide the next action<br>
+          2. Batch-fill form fields or click buttons step-by-step<br>
           3. <strong>Guardrail</strong> evaluates each step: ✅ / ❌ / ⚠️
         </div>
       </div>
@@ -534,17 +538,8 @@ function createPanel() {
 
 async function agentStepSingle(snapshot) {
   const res = await fetch(API_BASE + '/api/evaluate-live', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pageSnapshot: snapshot, sessionId }),
-  });
-  return res.json();
-}
-
-async function agentStepBatch(snapshot) {
-  const res = await fetch(API_BASE + '/api/evaluate-live-batch', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ pageSnapshot: snapshot, sessionId }),
   });
   return res.json();
@@ -560,8 +555,10 @@ async function handleRunAgent() {
   document.getElementById('gg-stop-agent-btn').style.display = '';
 
   addLogMessage('🤖 Agent starting — Claude decides everything…', 'info');
-  let batchDone = false;
-  let consecutiveBlocks = 0;
+  let nonproductiveSteps = 0;
+  let lastFieldFingerprint = '';
+  let gayaPasteUsedOnForm = false;
+  const completedForms = new Set();  // Fingerprints of forms we already worked on
 
   for (let step = 0; step < MAX_AGENT_STEPS; step++) {
     if (!agentRunning) {
@@ -570,8 +567,31 @@ async function handleRunAgent() {
     }
 
     currentSnapshot = scrapePage();
-    stepCount++;
 
+    // ── Detect page change by field fingerprint (works even if URL stays same) ──
+    const fieldFingerprint = (currentSnapshot.fields || []).map(f => f.id).sort().join('|');
+    if (lastFieldFingerprint && fieldFingerprint !== lastFieldFingerprint) {
+      // Mark the previous form as completed
+      completedForms.add(lastFieldFingerprint);
+      addLogMessage('📄 New form detected — resetting…', 'info');
+      nonproductiveSteps = 0;
+      gayaPasteUsedOnForm = false;
+
+      // If we've seen this form before → stop (we're looping)
+      if (completedForms.has(fieldFingerprint)) {
+        addLogMessage('🏁 Agent returned to a previously completed form — stopping.', 'success');
+        break;
+      }
+    }
+    lastFieldFingerprint = fieldFingerprint;
+
+    // ── Hide Gaya paste button from snapshot if already used on this form ──
+    if (gayaPasteUsedOnForm && currentSnapshot.buttons) {
+      currentSnapshot.buttons = currentSnapshot.buttons.filter(b => b.id !== 'gaya-super-paste');
+    }
+
+    // ── Single-step: Claude proposes one action at a time ──
+    stepCount++;
     const loading = showLoading(`Step ${stepCount} — Claude is thinking…`);
 
     try {
@@ -606,82 +626,33 @@ async function handleRunAgent() {
       }
 
       if (canExecute) {
-        consecutiveBlocks = 0;
+        nonproductiveSteps = 0;
 
         // ── CLICK actions (Gaya paste, Next, Submit, etc.) ──
         if (aType === 'click') {
           const clicked = executeClickAction(data.action);
           if (isGayaPaste && clicked) {
+            gayaPasteUsedOnForm = true;  // Don't show Gaya paste to Claude again on this form
             addLogMessage('🟢 Gaya paste triggered — waiting for fields to fill…', 'info');
             await sleep(GAYA_PASTE_WAIT_MS);
-            batchDone = false;
           } else if (clicked) {
-            await sleep(1500);
-          }
-        }
-
-        // ── FILL/SELECT → auto-escalate to batch mode ──
-        else if ((aType === 'fill' || aType === 'select') && !batchDone) {
-          addLogMessage('📋 Agent wants to fill — escalating to batch mode (all fields at once)…', 'info');
-          clearHighlights();
-
-          const batchLoading = showLoading('Batch — Claude proposing all fills…');
-          const batchData = await agentStepBatch(currentSnapshot);
-          batchLoading.remove();
-
-          if (batchData.error) {
-            addLogMessage('⚠️ Batch error: ' + batchData.error, 'error');
-            break;
-          }
-
-          sessionId = batchData.sessionId || sessionId;
-
-          if (batchData.results && batchData.results.length > 0) {
-            addLogMessage(
-              `📋 Batch: ${batchData.totalActions} fills proposed · ✅ ${batchData.allowed} allowed · ❌ ${batchData.blocked} blocked`,
-              'info'
-            );
-
-            let filledCount = 0;
-            for (const r of batchData.results) {
-              if (!agentRunning) break;
-              stepCount++;
-              recordStep(r);
-
-              const bv = r.decision.verdict;
-              const batchNeedsConfirm = bv === 'FLAG' || (confirmAll && bv === 'BLOCK');
-              let batchCanExecute = bv !== 'BLOCK';
-
-              if (batchNeedsConfirm) {
-                const choice = await waitForUserDecision(r);
-                if (choice === 'approve') {
-                  batchCanExecute = true;
-                  if (bv === 'BLOCK') addLogMessage(`⚠️ Override: ${r.action.targetText || r.action.targetId}`, 'warning');
-                } else {
-                  addLogMessage(`⏭ Skipped: ${r.action.targetText || r.action.targetId}`, 'warning');
-                  batchCanExecute = false;
-                }
-              }
-
-              if (batchCanExecute) {
-                const ok = executeAction(r.action);
-                if (ok) filledCount++;
-              }
-
-              await sleep(150);
-              clearHighlights();
+            const targetText = (data.action.targetText || '').toLowerCase();
+            const isSubmit = /submit|finalize|complete|bind|issue|place order|confirm/i.test(targetText);
+            if (isSubmit) {
+              addLogMessage('🏁 Submission executed — waiting for page to update.', 'success');
+              await sleep(2000);
+              break;
             }
-            addLogMessage(`✅ Batch complete — ${filledCount} fields filled.`, 'success');
+            await sleep(1500);
           } else {
-            addLogMessage('ℹ️ Claude proposed no fills — moving on.', 'info');
+            nonproductiveSteps++;
           }
-
-          batchDone = true;
         }
 
-        // ── Fill/select after batch already done → just execute single ──
+        // ── FILL / SELECT ──
         else if (aType === 'fill' || aType === 'select') {
-          executeAction(data.action);
+          const ok = executeAction(data.action);
+          if (!ok) nonproductiveSteps++;
         }
 
         // ── WAIT → agent says it's done ──
@@ -691,13 +662,19 @@ async function handleRunAgent() {
         }
 
       } else if (verdict === 'BLOCK' && !confirmAll) {
-        consecutiveBlocks++;
         addLogMessage(`🛑 Blocked: ${data.action.description}`, 'warning');
-
-        if (consecutiveBlocks >= 2) {
-          addLogMessage('🚫 Agent stuck — all actions blocked on this page. Stopping.', 'error');
+        if (aType === 'click' || aType === 'navigate') {
+          addLogMessage('🏁 Page complete — submission/navigation requires human action.', 'info');
           break;
         }
+        nonproductiveSteps++;
+      } else {
+        nonproductiveSteps++;
+      }
+
+      if (nonproductiveSteps >= 3) {
+        addLogMessage('🚫 Agent stuck — no productive actions possible. Stopping.', 'error');
+        break;
       }
 
       await sleep(400);
@@ -714,10 +691,10 @@ async function handleRunAgent() {
     addLogMessage(`🏁 Agent reached max steps (${MAX_AGENT_STEPS}).`, 'warning');
   }
 
-  addLogMessage(
+    addLogMessage(
     `📊 Done — ${stats.total} actions · ✅ ${stats.allowed} allowed · ❌ ${stats.blocked} blocked · ⚠️ ${stats.flagged} flagged`,
-    'info'
-  );
+      'info'
+    );
 
   agentRunning = false;
   document.getElementById('gg-run-agent-btn').style.display = '';
@@ -802,11 +779,11 @@ function showLoading(text) {
 }
 
 function recordStep(data) {
-  stats.total++;
+      stats.total++;
   if (data.decision.verdict === 'ALLOW') stats.allowed++;
   else if (data.decision.verdict === 'BLOCK') stats.blocked++;
-  else stats.flagged++;
-  updateStatsUI();
+      else stats.flagged++;
+      updateStatsUI();
   renderEntry(stepCount, data);
 
   const state = data.decision.verdict === 'ALLOW' ? 'allowed'
@@ -848,7 +825,7 @@ async function handleCommand() {
       return;
     }
 
-    sessionId = data.sessionId;
+      sessionId = data.sessionId;
     recordStep(data);
 
     const cmdVerdict = data.decision.verdict;
@@ -884,8 +861,8 @@ async function handleCommand() {
       addLogMessage(`🛑 Guardrail blocked this command!`, 'error');
     }
 
-    await sleep(300);
-    clearHighlights();
+      await sleep(300);
+      clearHighlights();
   } catch (err) {
     loading.remove();
     addLogMessage('⚠️ Connection error: ' + err.message, 'error');

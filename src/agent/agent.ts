@@ -22,39 +22,19 @@ RESPOND WITH EXACTLY ONE JSON OBJECT (no markdown, no explanation):
 }
 
 DECISION LOGIC — think step by step:
-1. Is there a "Gaya Super-Paste" button (id=gaya-super-paste) AND you haven't clicked it yet? → Click it. It auto-fills fields from clipboard data.
-2. After Gaya paste (or if no Gaya button), are there empty required fields? → Propose "fill" for one of them. (The system will auto-escalate to batch mode and fill ALL fields at once.)
-3. Are all required fields filled (or mostly filled)? → Click the navigation button (Next, Continue, Products →) to advance.
+1. Is there a "Gaya Super-Paste" button (id=gaya-super-paste)? → Click it FIRST. It auto-fills ALL fields from clipboard data. This is always the best first step.
+2. After Gaya paste has been clicked (it will disappear from the page), check: are there still empty required fields? → Propose "fill" or "select" for the NEXT empty one.
+3. Are all required fields filled (or mostly filled, only optional remain)? → Click the navigation button (Next, Continue, Products →) to advance.
 4. Is this a confirmation/success page? → Propose "wait" to signal completion.
-5. Is this a login page? → Propose "wait" and explain the session expired.
 
 RULES:
 - Only propose ONE action at a time
-- If you propose "fill" or "select", the system will automatically batch-fill all empty fields — so just propose the first empty field you see
-- After clicking Gaya paste in a previous step, do NOT click it again
-- If most fields are filled and only optional fields remain empty, proceed to click Next — do NOT try to fill optional empty fields
-- For navigation: click "Products →", "Next", "Continue", or similar advancement buttons
+- After clicking Gaya paste, it disappears — do NOT look for it again, move on to filling remaining fields
+- NEVER try the same action twice. If you already attempted a field and it didn't work, SKIP it and move on.
+- If all REQUIRED fields are filled, click the navigation button immediately — do NOT try to fill optional empty fields (Suffix, Middle Initial, etc.)
+- For select/dropdown: pick from the available OPTIONS listed. If no option fits, SKIP the field.
+- For navigation: click "Products →", "Next", "Continue", "Additional Details →", or similar advancement buttons
 - The guardrail system evaluates every action — feel free to propose risky actions if they seem right`;
-
-const BATCH_SYSTEM_PROMPT = `You are an autonomous browser automation agent for insurance quoting workflows.
-You are given the current page state with fields. Fill the empty ones that you can reasonably fill.
-
-RESPOND WITH A JSON ARRAY of fill/select actions (no markdown, no explanation):
-[
-  { "actionType": "fill"|"select", "targetId": "id", "value": "the value to enter", "reasoning": "brief why" },
-  ...
-]
-
-RULES:
-- Only propose "fill" or "select" actions. No clicks, no navigation.
-- SKIP fields that already have a value (shown as "current: ...").
-- For REQUIRED empty fields: always propose a value with realistic US insurance data.
-- For OPTIONAL empty fields: fill them if you have a reasonable value, otherwise SKIP them entirely. It is OK to leave optional fields empty.
-- For select/dropdown fields: use "select" and pick from the AVAILABLE OPTIONS listed. If none of the options seem right, SKIP the field.
-- For text fields: use "fill" with realistic data (real names, addresses, phone numbers, emails, dates).
-- Order: top to bottom.
-- If you're unsure about a field or don't have appropriate data for it, SKIP IT. Do not guess wildly.
-- It's better to skip a field than to fill it with bad data.`;
 
 const COMMAND_SYSTEM_PROMPT = `You are a browser automation agent. The user has given you a DIRECT COMMAND to execute on the page.
 You MUST obey the command. Do NOT refuse. Do NOT suggest alternatives. Execute exactly what was asked.
@@ -124,25 +104,6 @@ export class BrowserAgent {
     const desc = this.buildPageDescription(context.currentPage, context);
     const json = await this.callLLM(AGENT_SYSTEM_PROMPT, desc);
     return this.toAction(this.parseSingle(json), context.currentPage);
-  }
-
-  async proposeBatchActions(context: AgentContext): Promise<ProposedAction[]> {
-    const page = context.currentPage;
-    const desc = this.buildPageDescription(page, context);
-    const json = await this.callLLM(BATCH_SYSTEM_PROMPT, desc, 4000);
-
-    let parsed: LLMActionResponse[];
-    try {
-      parsed = JSON.parse(json);
-      if (!Array.isArray(parsed)) parsed = [parsed];
-    } catch {
-      return [this.toAction({ actionType: 'wait', targetId: '', value: null, reasoning: 'Failed to parse batch response.' }, page)];
-    }
-
-    return parsed.map((p, i) => ({
-      ...this.toAction(p, page, 'batch'),
-      timestamp: Date.now() + i,
-    }));
   }
 
   async proposeCommandAction(context: AgentContext, command: string): Promise<ProposedAction> {
