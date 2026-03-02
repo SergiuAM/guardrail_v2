@@ -1,34 +1,35 @@
 {
-    "siteId": "default",
-    "displayName": "Default Policy",
-    "urlPatterns": [
-        "*"
-    ],
-    "whitelistedElements": [],
-    "blacklistedElements": [],
-    "customDestructivePatterns": [],
-    "customSafePatterns": [],
-    "pageTypeIndicators": {
-        "confirmation": [],
-        "error": [],
-        "login": []
-    },
-    "policySettings": {
-        "destructiveActionGuard": {
-            "enabled": true
-        },
-        "submissionGuard": {
-            "enabled": true,
-            "submissionSeverity": "critical"
-        },
-        "pageSafetyGuard": {
-            "enabled": true,
-            "maxPageAgeMs": 300000
-        },
-        "loopDetector": {
-            "enabled": true,
-            "maxIdenticalActions": 3,
-            "maxActionsPerMinute": 30
-        }
-    }
+  "siteId": "default",
+  "displayName": "Default Policy",
+  "urlPatterns": ["*"],
+
+  "whitelistedElements": [],
+  "blacklistedElements": [],
+
+  "destructivePatterns": [
+    "delete", "remove", "cancel", "reset", "clear all",
+    "destroy", "terminate", "revoke", "purge"
+  ],
+  "irreversiblePatterns": [
+    "process payment", "charge", "bind policy", "issue",
+    "delete all", "remove all", "purge"
+  ],
+  "submissionPatterns": [
+    "submit", "finalize", "complete", "process",
+    "bind", "issue", "place order", "confirm purchase"
+  ],
+  "safePatterns": [],
+
+  "pageTypeIndicators": {
+    "confirmation": [],
+    "error": [],
+    "login": []
+  },
+
+  "policySettings": {
+    "destructiveActionGuard": { "enabled": true },
+    "submissionGuard": { "enabled": true, "submissionSeverity": "critical" },
+    "pageSafetyGuard": { "enabled": true, "maxPageAgeMs": 300000 },
+    "loopDetector": { "enabled": true, "maxIdenticalActions": 3, "maxActionsPerMinute": 30 }
+  }
 }

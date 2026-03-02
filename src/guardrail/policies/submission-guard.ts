@@ -1,14 +1,10 @@
 import { ProposedAction, PageState, PolicyViolation, AgentContext, SiteConfig } from '../../types';
 
-const SUBMIT_PATTERNS = [
-  /submit/i, /finalize/i, /complete/i, /process/i,
-  /bind/i, /issue/i, /place order/i, /confirm purchase/i,
-];
-
-function isSubmissionAction(action: ProposedAction): boolean {
+function isSubmissionAction(action: ProposedAction, config: SiteConfig): boolean {
   if (action.type === 'submit') return true;
   if (action.type === 'click') {
-    return SUBMIT_PATTERNS.some(p => p.test(action.target.text));
+    const patterns = config.submissionPatterns.map(s => new RegExp(s, 'i'));
+    return patterns.some(p => p.test(action.target.text));
   }
   return false;
 }
@@ -20,7 +16,7 @@ export function evaluateSubmission(
   config: SiteConfig
 ): PolicyViolation[] {
   if (!config.policySettings.submissionGuard.enabled) return [];
-  if (!isSubmissionAction(action)) return [];
+  if (!isSubmissionAction(action, config)) return [];
 
   const violations: PolicyViolation[] = [];
   const severity = config.policySettings.submissionGuard.submissionSeverity ?? 'critical';
@@ -34,7 +30,7 @@ export function evaluateSubmission(
     suggestion: 'Flag for human review. The agent must never submit quotes, payments, or binding actions autonomously.',
   });
 
-  // ── Submission on confirmation page: quote already submitted ──
+  // ── Submission on confirmation page ──
   if (page.pageType === 'CONFIRMATION') {
     violations.push({
       policyId: 'submission-post-confirmation',

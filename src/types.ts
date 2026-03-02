@@ -92,15 +92,25 @@ export interface SiteConfig {
   siteId: string;
   displayName: string;
   urlPatterns: string[];
+
+  // Element-level rules
   whitelistedElements: ElementRule[];
   blacklistedElements: ElementRule[];
-  customDestructivePatterns?: string[];
-  customSafePatterns?: string[];
+
+  // Pattern lists (all patterns are case-insensitive regex strings)
+  destructivePatterns: string[];
+  irreversiblePatterns: string[];
+  submissionPatterns: string[];
+  safePatterns: string[];
+
+  // Page type detection hints (CSS selectors)
   pageTypeIndicators?: {
     confirmation?: string[];
     error?: string[];
     login?: string[];
   };
+
+  // Per-policy settings
   policySettings: {
     destructiveActionGuard: PolicySettings;
     submissionGuard: PolicySettings;
