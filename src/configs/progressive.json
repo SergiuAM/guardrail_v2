@@ -1,64 +1,88 @@
 {
-  "siteId": "progressive",
-  "displayName": "Progressive Insurance",
-  "extends": "default",
-  "urlPatterns": ["*.progressive.com/*", "*progressive*"],
-
-  "whitelistedElements": [
-    {
-      "text": "Remove Vehicle",
-      "reason": "Safe — removes a vehicle from the quote list, not a destructive action"
+    "siteId": "progressive",
+    "displayName": "Progressive Insurance",
+    "extends": "default",
+    "urlPatterns": [
+        "*.progressive.com/*",
+        "*progressive*"
+    ],
+    "whitelistedElements": [
+        {
+            "text": "Remove Vehicle",
+            "reason": "Safe — removes a vehicle from the quote list, not a destructive action"
+        },
+        {
+            "text": "Clear",
+            "urlPattern": "*/quote/*",
+            "reason": "Safe — clears current form step during quoting"
+        }
+    ],
+    "blacklistedElements": [
+        {
+            "selector": ".navbar-brand, .logo-link, .header-logo a",
+            "severity": "high",
+            "reason": "Navigates away from quoting flow to policy list"
+        },
+        {
+            "text": "Bind Policy",
+            "severity": "critical",
+            "reason": "Irreversible — binds an insurance policy"
+        },
+        {
+            "text": "Process Payment",
+            "severity": "critical",
+            "reason": "Irreversible — processes a financial transaction"
+        },
+        {
+            "text": "Save",
+            "urlPattern": "*/policy/*",
+            "severity": "critical",
+            "reason": "Saves changes to an active policy — dangerous outside quoting"
+        },
+        {
+            "text": "Edit",
+            "urlPattern": "*/policy/*",
+            "severity": "high",
+            "reason": "Enters edit mode on an active policy"
+        }
+    ],
+    "addDestructivePatterns": [
+        "cancel policy",
+        "withdraw",
+        "void"
+    ],
+    "removeDestructivePatterns": [
+        "remove"
+    ],
+    "addSafePatterns": [
+        "add vehicle",
+        "add driver",
+        "get quote",
+        "save quote",
+        "remove vehicle"
+    ],
+    "pageTypeIndicators": {
+        "confirmation": [
+            ".quote-confirmation",
+            "#success-banner",
+            ".confirmation-number"
+        ],
+        "error": [
+            ".alert-danger",
+            "#error-container",
+            ".validation-summary"
+        ],
+        "login": [
+            "#loginForm",
+            ".login-container"
+        ]
     },
-    {
-      "text": "Clear",
-      "urlPattern": "*/quote/*",
-      "reason": "Safe — clears current form step during quoting"
+    "policySettings": {
+        "pageSafetyGuard": {
+            "maxPageAgeMs": 180000
+        },
+        "loopDetector": {
+            "maxActionsPerMinute": 25
+        }
     }
-  ],
-
-  "blacklistedElements": [
-    {
-      "selector": ".navbar-brand, .logo-link, .header-logo a",
-      "severity": "high",
-      "reason": "Navigates away from quoting flow to policy list"
-    },
-    {
-      "text": "Bind Policy",
-      "severity": "critical",
-      "reason": "Irreversible — binds an insurance policy"
-    },
-    {
-      "text": "Process Payment",
-      "severity": "critical",
-      "reason": "Irreversible — processes a financial transaction"
-    },
-    {
-      "text": "Save",
-      "urlPattern": "*/policy/*",
-      "severity": "critical",
-      "reason": "Saves changes to an active policy — dangerous outside quoting"
-    },
-    {
-      "text": "Edit",
-      "urlPattern": "*/policy/*",
-      "severity": "high",
-      "reason": "Enters edit mode on an active policy"
-    }
-  ],
-
-  "addDestructivePatterns": ["cancel policy", "withdraw", "void"],
-  "removeDestructivePatterns": ["remove"],
-
-  "addSafePatterns": ["add vehicle", "add driver", "get quote", "save quote", "remove vehicle"],
-
-  "pageTypeIndicators": {
-    "confirmation": [".quote-confirmation", "#success-banner", ".confirmation-number"],
-    "error": [".alert-danger", "#error-container", ".validation-summary"],
-    "login": ["#loginForm", ".login-container"]
-  },
-
-  "policySettings": {
-    "pageSafetyGuard": { "maxPageAgeMs": 180000 },
-    "loopDetector": { "maxActionsPerMinute": 25 }
-  }
 }
