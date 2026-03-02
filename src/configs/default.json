@@ -6,6 +6,7 @@
     ],
     "whitelistedElements": [],
     "blacklistedElements": [],
+    "allowedSubmissions": [],
     "destructivePatterns": [
         "delete",
         "remove",

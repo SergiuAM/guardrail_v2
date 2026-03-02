@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guardrail Admin — Policy Configuration</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #232733;
+      --border: #2e3347;
+      --text: #e4e6f0;
+      --text-muted: #8b8fa3;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --danger: #ef4444;
+      --danger-hover: #f87171;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --critical: #dc2626;
+      --high: #f97316;
+      --medium: #eab308;
+      --low: #3b82f6;
+      --safe: #22c55e;
+      --radius: 10px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.3);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Layout ── */
+    .app { display: flex; height: 100vh; }
+    .sidebar {
+      width: 280px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .sidebar-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .sidebar-header p {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .config-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+    }
+    .config-item {
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      margin-bottom: 4px;
+      transition: all 0.15s;
+      border: 1px solid transparent;
+    }
+    .config-item:hover { background: var(--surface2); }
+    .config-item.active {
+      background: var(--surface2);
+      border-color: var(--accent);
+    }
+    .config-item .name { font-size: 14px; font-weight: 500; }
+    .config-item .id { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .config-item .badge {
+      display: inline-block;
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+    .badge-default { background: var(--accent); color: white; }
+    .badge-carrier { background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); }
+
+    .sidebar-actions {
+      padding: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 32px;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-danger:hover { background: var(--danger-hover); }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+    .btn-full { width: 100%; justify-content: center; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .card-header h2 {
+      font-size: 15px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ── Form elements ── */
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    input[type="text"], textarea {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input[type="text"]:focus, textarea:focus {
+      border-color: var(--accent);
+    }
+    textarea { resize: vertical; min-height: 80px; }
+
+    /* ── Tags ── */
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: 12px;
+    }
+    .tag-remove {
+      cursor: pointer;
+      opacity: 0.5;
+      font-size: 14px;
+      line-height: 1;
+    }
+    .tag-remove:hover { opacity: 1; color: var(--danger); }
+    .tag-add {
+      border-style: dashed;
+      border-color: var(--accent);
+      color: var(--accent);
+      cursor: pointer;
+      background: transparent;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+    .tag-add:hover { background: rgba(99,102,241,0.1); }
+
+    /* ── Element Rules Table ── */
+    .rules-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .rules-table th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .rules-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .rules-table tr:last-child td { border-bottom: none; }
+    .rules-table input {
+      width: 100%;
+      padding: 6px 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 12px;
+      outline: none;
+    }
+    .rules-table input:focus { border-color: var(--accent); }
+    .rules-table select {
+      padding: 6px 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 12px;
+      outline: none;
+    }
+
+    .severity-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .severity-critical { background: rgba(220,38,38,0.15); color: var(--critical); }
+    .severity-high { background: rgba(249,115,22,0.15); color: var(--high); }
+    .severity-medium { background: rgba(234,179,8,0.15); color: var(--medium); }
+    .severity-low { background: rgba(59,130,246,0.15); color: var(--low); }
+    .severity-safe { background: rgba(34,197,94,0.15); color: var(--safe); }
+
+    /* ── Toggle ── */
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .toggle-row:last-child { border-bottom: none; }
+    .toggle-label { font-size: 13px; }
+    .toggle-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .toggle {
+      width: 40px;
+      height: 22px;
+      background: var(--border);
+      border-radius: 11px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .toggle.active { background: var(--accent); }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      background: white;
+      border-radius: 50%;
+      top: 2px;
+      left: 2px;
+      transition: transform 0.2s;
+    }
+    .toggle.active::after { transform: translateX(18px); }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 12px 20px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 500;
+      z-index: 999;
+      animation: slideIn 0.3s ease;
+      box-shadow: var(--shadow);
+    }
+    .toast-success { background: var(--success); color: white; }
+    .toast-error { background: var(--danger); color: white; }
+    @keyframes slideIn {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 60vh;
+      color: var(--text-muted);
+    }
+    .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+    .empty-state h3 { font-size: 18px; margin-bottom: 8px; color: var(--text); }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      width: 440px;
+      box-shadow: var(--shadow);
+    }
+    .modal h3 { margin-bottom: 16px; font-size: 16px; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+    /* ── Inline settings ── */
+    .setting-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+    }
+    .setting-row label {
+      font-size: 12px;
+      color: var(--text-muted);
+      min-width: 140px;
+    }
+    .setting-row input[type="number"] {
+      width: 100px;
+      padding: 6px 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 12px;
+      outline: none;
+    }
+    .setting-row input[type="number"]:focus { border-color: var(--accent); }
+
+    .resolved-preview {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h1>🛡️ Guardrail Admin</h1>
+        <p>Policy Configuration Dashboard</p>
+      </div>
+      <div class="config-list" id="configList"></div>
+      <div class="sidebar-actions">
+        <button class="btn btn-primary btn-full" onclick="showNewCarrierModal()">+ New Carrier</button>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main" id="mainContent">
+      <div class="empty-state">
+        <div class="icon">⚙️</div>
+        <h3>Select a configuration</h3>
+        <p>Choose a carrier from the sidebar or create a new one</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Carrier Modal -->
+  <div class="modal-overlay" id="newCarrierModal" style="display:none">
+    <div class="modal">
+      <h3>New Carrier Configuration</h3>
+      <div class="form-group">
+        <label>Site ID</label>
+        <input type="text" id="newSiteId" placeholder="e.g. geico">
+      </div>
+      <div class="form-group">
+        <label>Display Name</label>
+        <input type="text" id="newDisplayName" placeholder="e.g. Geico Insurance">
+      </div>
+      <div class="form-group">
+        <label>URL Patterns (comma separated)</label>
+        <input type="text" id="newUrlPatterns" placeholder="e.g. *.geico.com/*, *geico*">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="hideNewCarrierModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="createCarrier()">Create</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+const API = '';
+let allConfigs = { default: null, carriers: [] };
+let selectedId = null;
+
+// ── API ──
+async function fetchConfigs() {
+  const res = await fetch(`${API}/api/admin/configs`);
+  allConfigs = await res.json();
+  renderSidebar();
+}
+
+async function saveConfig(siteId, data) {
+  const url = siteId === 'default'
+    ? `${API}/api/admin/configs/default`
+    : `${API}/api/admin/configs/${siteId}`;
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (res.ok) {
+    toast('Configuration saved', 'success');
+    await fetchConfigs();
+    selectConfig(siteId);
+  } else {
+    toast('Failed to save', 'error');
+  }
+}
+
+async function deleteConfig(siteId) {
+  if (!confirm(`Delete "${siteId}" configuration?`)) return;
+  const res = await fetch(`${API}/api/admin/configs/${siteId}`, { method: 'DELETE' });
+  if (res.ok) {
+    toast('Configuration deleted', 'success');
+    selectedId = null;
+    await fetchConfigs();
+    document.getElementById('mainContent').innerHTML = `
+      <div class="empty-state">
+        <div class="icon">⚙️</div>
+        <h3>Select a configuration</h3>
+        <p>Choose a carrier from the sidebar or create a new one</p>
+      </div>`;
+  } else {
+    toast('Failed to delete', 'error');
+  }
+}
+
+async function fetchResolved(siteId) {
+  const res = await fetch(`${API}/api/admin/configs/${siteId}/resolved`);
+  return await res.json();
+}
+
+// ── Sidebar ──
+function renderSidebar() {
+  const list = document.getElementById('configList');
+  let html = '';
+
+  html += `<div class="config-item ${selectedId === 'default' ? 'active' : ''}" onclick="selectConfig('default')">
+    <div class="name">${allConfigs.default.displayName}</div>
+    <div class="id">default</div>
+    <span class="badge badge-default">BASE</span>
+  </div>`;
+
+  for (const c of allConfigs.carriers) {
+    html += `<div class="config-item ${selectedId === c.siteId ? 'active' : ''}" onclick="selectConfig('${c.siteId}')">
+      <div class="name">${c.displayName}</div>
+      <div class="id">${c.siteId}</div>
+      <span class="badge badge-carrier">CARRIER</span>
+    </div>`;
+  }
+  list.innerHTML = html;
+}
+
+// ── Select Config ──
+function selectConfig(siteId) {
+  selectedId = siteId;
+  renderSidebar();
+  if (siteId === 'default') {
+    renderDefaultEditor(allConfigs.default);
+  } else {
+    const carrier = allConfigs.carriers.find(c => c.siteId === siteId);
+    if (carrier) renderCarrierEditor(carrier);
+  }
+}
+
+// ── Default Editor ──
+function renderDefaultEditor(config) {
+  const main = document.getElementById('mainContent');
+  main.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+      <div>
+        <h2 style="font-size:20px;font-weight:600">${config.displayName}</h2>
+        <p style="font-size:13px;color:var(--text-muted);margin-top:4px">Base configuration — inherited by all carriers</p>
+      </div>
+      <button class="btn btn-primary" onclick="saveDefault()">💾 Save Changes</button>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>🔴 Destructive Patterns</h2></div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Actions matching these patterns will be flagged as dangerous</p>
+      <div class="tag-list" id="destructivePatterns">
+        ${config.destructivePatterns.map(p => `<span class="tag">${p}<span class="tag-remove" onclick="removeTag('destructivePatterns','${p}')">×</span></span>`).join('')}
+        <button class="tag-add" onclick="addTag('destructivePatterns')">+ Add</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>⛔ Irreversible Patterns</h2></div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Actions that cannot be undone — always blocked</p>
+      <div class="tag-list" id="irreversiblePatterns">
+        ${config.irreversiblePatterns.map(p => `<span class="tag">${p}<span class="tag-remove" onclick="removeTag('irreversiblePatterns','${p}')">×</span></span>`).join('')}
+        <button class="tag-add" onclick="addTag('irreversiblePatterns')">+ Add</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>📝 Submission Patterns</h2></div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Patterns that identify form submission actions</p>
+      <div class="tag-list" id="submissionPatterns">
+        ${config.submissionPatterns.map(p => `<span class="tag">${p}<span class="tag-remove" onclick="removeTag('submissionPatterns','${p}')">×</span></span>`).join('')}
+        <button class="tag-add" onclick="addTag('submissionPatterns')">+ Add</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>✅ Safe Patterns</h2></div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Patterns always considered safe</p>
+      <div class="tag-list" id="safePatterns">
+        ${config.safePatterns.map(p => `<span class="tag">${p}<span class="tag-remove" onclick="removeTag('safePatterns','${p}')">×</span></span>`).join('')}
+        <button class="tag-add" onclick="addTag('safePatterns')">+ Add</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>⚙️ Policy Settings</h2></div>
+      ${renderPolicySettings(config.policySettings)}
+    </div>
+  `;
+}
+
+// ── Carrier Editor ──
+function renderCarrierEditor(carrier) {
+  const main = document.getElementById('mainContent');
+  main.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+      <div>
+        <h2 style="font-size:20px;font-weight:600">${carrier.displayName}</h2>
+        <p style="font-size:13px;color:var(--text-muted);margin-top:4px">Extends default — only differences shown</p>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline" onclick="showResolved('${carrier.siteId}')">👁️ View Resolved</button>
+        <button class="btn btn-danger" onclick="deleteConfig('${carrier.siteId}')">🗑️ Delete</button>
+        <button class="btn btn-primary" onclick="saveCarrier()">💾 Save Changes</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>🌐 URL Patterns</h2></div>
+      <div class="tag-list" id="urlPatterns">
+        ${(carrier.urlPatterns || []).map(p => `<span class="tag">${p}<span class="tag-remove" onclick="removeTag('urlPatterns','${esc(p)}')">×</span></span>`).join('')}
+        <button class="tag-add" onclick="addTag('urlPatterns')">+ Add</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>✅ Whitelisted Elements</h2></div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Elements considered safe — bypass all destructive checks</p>
+      ${renderRulesTable('whitelistedElements', carrier.whitelistedElements || [])}
+      <button class="btn btn-outline btn-sm" style="margin-top:12px" onclick="addRule('whitelistedElements')">+ Add Element</button>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>🚫 Blacklisted Elements</h2></div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Elements always blocked — regardless of patterns</p>
+      ${renderRulesTable('blacklistedElements', carrier.blacklistedElements || [], true)}
+      <button class="btn btn-outline btn-sm" style="margin-top:12px" onclick="addRule('blacklistedElements')">+ Add Element</button>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>✅ Allowed Submissions</h2></div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Submissions that bypass the submission guard (e.g. "Next" between quote steps)</p>
+      ${renderRulesTable('allowedSubmissions', carrier.allowedSubmissions || [])}
+      <button class="btn btn-outline btn-sm" style="margin-top:12px" onclick="addRule('allowedSubmissions')">+ Add Submission</button>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>➕ Added Destructive Patterns</h2></div>
+      <div class="tag-list" id="addDestructivePatterns">
+        ${(carrier.addDestructivePatterns || []).map(p => `<span class="tag">${p}<span class="tag-remove" onclick="removeTag('addDestructivePatterns','${p}')">×</span></span>`).join('')}
+        <button class="tag-add" onclick="addTag('addDestructivePatterns')">+ Add</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>➖ Removed Destructive Patterns</h2></div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Default patterns to exclude for this carrier</p>
+      <div class="tag-list" id="removeDestructivePatterns">
+        ${(carrier.removeDestructivePatterns || []).map(p => `<span class="tag">${p}<span class="tag-remove" onclick="removeTag('removeDestructivePatterns','${p}')">×</span></span>`).join('')}
+        <button class="tag-add" onclick="addTag('removeDestructivePatterns')">+ Add</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>✅ Added Safe Patterns</h2></div>
+      <div class="tag-list" id="addSafePatterns">
+        ${(carrier.addSafePatterns || []).map(p => `<span class="tag">${p}<span class="tag-remove" onclick="removeTag('addSafePatterns','${p}')">×</span></span>`).join('')}
+        <button class="tag-add" onclick="addTag('addSafePatterns')">+ Add</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>⚙️ Policy Overrides</h2></div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Only set values that differ from default</p>
+      ${renderCarrierPolicySettings(carrier.policySettings || {})}
+    </div>
+  `;
+}
+
+// ── Rules Table ──
+function renderRulesTable(id, rules, showSeverity = false) {
+  if (rules.length === 0) return `<div id="${id}" style="color:var(--text-muted);font-size:13px;padding:8px 0">No elements configured</div>`;
+
+  let html = `<table class="rules-table" id="${id}"><thead><tr>
+    <th>Text</th><th>Selector</th><th>URL Pattern</th>
+    ${showSeverity ? '<th>Severity</th>' : ''}
+    <th>Reason</th><th></th>
+  </tr></thead><tbody>`;
+
+  rules.forEach((r, i) => {
+    html += `<tr>
+      <td><input type="text" value="${esc(r.text || '')}" data-field="text" data-table="${id}" data-idx="${i}"></td>
+      <td><input type="text" value="${esc(r.selector || '')}" data-field="selector" data-table="${id}" data-idx="${i}"></td>
+      <td><input type="text" value="${esc(r.urlPattern || '')}" data-field="urlPattern" data-table="${id}" data-idx="${i}"></td>
+      ${showSeverity ? `<td><select data-field="severity" data-table="${id}" data-idx="${i}">
+        ${['critical','high','medium','low','safe'].map(s => `<option value="${s}" ${r.severity === s ? 'selected' : ''}>${s}</option>`).join('')}
+      </select></td>` : ''}
+      <td><input type="text" value="${esc(r.reason || '')}" data-field="reason" data-table="${id}" data-idx="${i}"></td>
+      <td><button class="btn btn-danger btn-sm" onclick="removeRule('${id}',${i})">×</button></td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  return html;
+}
+
+// ── Policy Settings ──
+function renderPolicySettings(ps) {
+  return `
+    <div class="setting-row"><label>Destructive Guard</label>
+      <div class="toggle ${ps.destructiveActionGuard.enabled ? 'active' : ''}" onclick="this.classList.toggle('active')" data-setting="destructiveActionGuard.enabled"></div></div>
+    <div class="setting-row"><label>Submission Guard</label>
+      <div class="toggle ${ps.submissionGuard.enabled ? 'active' : ''}" onclick="this.classList.toggle('active')" data-setting="submissionGuard.enabled"></div></div>
+    <div class="setting-row"><label>Submission Severity</label>
+      <select data-setting="submissionGuard.submissionSeverity">
+        ${['critical','high','medium'].map(s => `<option value="${s}" ${ps.submissionGuard.submissionSeverity === s ? 'selected' : ''}>${s}</option>`).join('')}
+      </select></div>
+    <div class="setting-row"><label>Page Safety Guard</label>
+      <div class="toggle ${ps.pageSafetyGuard.enabled ? 'active' : ''}" onclick="this.classList.toggle('active')" data-setting="pageSafetyGuard.enabled"></div></div>
+    <div class="setting-row"><label>Max Page Age (ms)</label>
+      <input type="number" value="${ps.pageSafetyGuard.maxPageAgeMs || 300000}" data-setting="pageSafetyGuard.maxPageAgeMs"></div>
+    <div class="setting-row"><label>Loop Detector</label>
+      <div class="toggle ${ps.loopDetector.enabled ? 'active' : ''}" onclick="this.classList.toggle('active')" data-setting="loopDetector.enabled"></div></div>
+    <div class="setting-row"><label>Max Identical Actions</label>
+      <input type="number" value="${ps.loopDetector.maxIdenticalActions || 3}" data-setting="loopDetector.maxIdenticalActions"></div>
+    <div class="setting-row"><label>Max Actions/Minute</label>
+      <input type="number" value="${ps.loopDetector.maxActionsPerMinute || 30}" data-setting="loopDetector.maxActionsPerMinute"></div>
+  `;
+}
+
+function renderCarrierPolicySettings(ps) {
+  return `
+    <div class="setting-row"><label>Max Page Age (ms)</label>
+      <input type="number" value="${ps?.pageSafetyGuard?.maxPageAgeMs || ''}" data-setting="pageSafetyGuard.maxPageAgeMs" placeholder="inherit from default"></div>
+    <div class="setting-row"><label>Max Identical Actions</label>
+      <input type="number" value="${ps?.loopDetector?.maxIdenticalActions || ''}" data-setting="loopDetector.maxIdenticalActions" placeholder="inherit from default"></div>
+    <div class="setting-row"><label>Max Actions/Minute</label>
+      <input type="number" value="${ps?.loopDetector?.maxActionsPerMinute || ''}" data-setting="loopDetector.maxActionsPerMinute" placeholder="inherit from default"></div>
+  `;
+}
+
+// ── Tag management ──
+function removeTag(listId, value) {
+  const container = document.getElementById(listId);
+  const tags = Array.from(container.querySelectorAll('.tag'));
+  const tag = tags.find(t => t.textContent.replace('×', '').trim() === value);
+  if (tag) tag.remove();
+}
+
+function addTag(listId) {
+  const value = prompt('Enter pattern:');
+  if (!value) return;
+  const container = document.getElementById(listId);
+  const addBtn = container.querySelector('.tag-add');
+  const tag = document.createElement('span');
+  tag.className = 'tag';
+  tag.innerHTML = `${esc(value)}<span class="tag-remove" onclick="removeTag('${listId}','${esc(value)}')">×</span>`;
+  container.insertBefore(tag, addBtn);
+}
+
+function getTagValues(listId) {
+  const container = document.getElementById(listId);
+  if (!container) return [];
+  return Array.from(container.querySelectorAll('.tag')).map(t => t.textContent.replace('×', '').trim());
+}
+
+// ── Rule management ──
+function addRule(tableId) {
+  const carrier = allConfigs.carriers.find(c => c.siteId === selectedId);
+  if (!carrier) return;
+  if (!carrier[tableId]) carrier[tableId] = [];
+  carrier[tableId].push({ text: '', reason: '' });
+  renderCarrierEditor(carrier);
+}
+
+function removeRule(tableId, idx) {
+  const carrier = allConfigs.carriers.find(c => c.siteId === selectedId);
+  if (!carrier || !carrier[tableId]) return;
+  carrier[tableId].splice(idx, 1);
+  renderCarrierEditor(carrier);
+}
+
+function collectRules(tableId, hasSeverity = false) {
+  const table = document.getElementById(tableId);
+  if (!table || !table.querySelector) return [];
+  const rows = table.querySelectorAll('tbody tr');
+  const rules = [];
+  rows.forEach(row => {
+    const rule = {};
+    const text = row.querySelector('[data-field="text"]')?.value?.trim();
+    const selector = row.querySelector('[data-field="selector"]')?.value?.trim();
+    const urlPattern = row.querySelector('[data-field="urlPattern"]')?.value?.trim();
+    const reason = row.querySelector('[data-field="reason"]')?.value?.trim();
+    if (text) rule.text = text;
+    if (selector) rule.selector = selector;
+    if (urlPattern) rule.urlPattern = urlPattern;
+    if (reason) rule.reason = reason;
+    if (hasSeverity) {
+      rule.severity = row.querySelector('[data-field="severity"]')?.value || 'high';
+    }
+    if (Object.keys(rule).length > 0 && rule.reason) rules.push(rule);
+  });
+  return rules;
+}
+
+// ── Collect policy settings ──
+function collectPolicySettings() {
+  const ps = {
+    destructiveActionGuard: { enabled: true },
+    submissionGuard: { enabled: true, submissionSeverity: 'critical' },
+    pageSafetyGuard: { enabled: true, maxPageAgeMs: 300000 },
+    loopDetector: { enabled: true, maxIdenticalActions: 3, maxActionsPerMinute: 30 },
+  };
+
+  document.querySelectorAll('[data-setting]').forEach(el => {
+    const [policy, key] = el.dataset.setting.split('.');
+    if (el.classList.contains('toggle')) {
+      ps[policy][key] = el.classList.contains('active');
+    } else if (el.tagName === 'SELECT') {
+      ps[policy][key] = el.value;
+    } else if (el.type === 'number' && el.value) {
+      ps[policy][key] = Number(el.value);
+    }
+  });
+  return ps;
+}
+
+function collectCarrierPolicySettings() {
+  const ps = {};
+  document.querySelectorAll('[data-setting]').forEach(el => {
+    const [policy, key] = el.dataset.setting.split('.');
+    if (el.value && el.value.trim() !== '') {
+      if (!ps[policy]) ps[policy] = {};
+      ps[policy][key] = el.type === 'number' ? Number(el.value) : el.value;
+    }
+  });
+  return Object.keys(ps).length > 0 ? ps : undefined;
+}
+
+// ── Save ──
+function saveDefault() {
+  const config = {
+    ...allConfigs.default,
+    destructivePatterns: getTagValues('destructivePatterns'),
+    irreversiblePatterns: getTagValues('irreversiblePatterns'),
+    submissionPatterns: getTagValues('submissionPatterns'),
+    safePatterns: getTagValues('safePatterns'),
+    policySettings: collectPolicySettings(),
+  };
+  saveConfig('default', config);
+}
+
+function saveCarrier() {
+  const carrier = allConfigs.carriers.find(c => c.siteId === selectedId);
+  if (!carrier) return;
+  const config = {
+    siteId: carrier.siteId,
+    displayName: carrier.displayName,
+    extends: 'default',
+    urlPatterns: getTagValues('urlPatterns'),
+    whitelistedElements: collectRules('whitelistedElements'),
+    blacklistedElements: collectRules('blacklistedElements', true),
+    allowedSubmissions: collectRules('allowedSubmissions'),
+    addDestructivePatterns: getTagValues('addDestructivePatterns'),
+    removeDestructivePatterns: getTagValues('removeDestructivePatterns'),
+    addSafePatterns: getTagValues('addSafePatterns'),
+  };
+  const ps = collectCarrierPolicySettings();
+  if (ps) config.policySettings = ps;
+  saveConfig(selectedId, config);
+}
+
+// ── Create carrier ──
+function showNewCarrierModal() { document.getElementById('newCarrierModal').style.display = 'flex'; }
+function hideNewCarrierModal() { document.getElementById('newCarrierModal').style.display = 'none'; }
+
+async function createCarrier() {
+  const siteId = document.getElementById('newSiteId').value.trim().toLowerCase().replace(/\s+/g, '-');
+  const displayName = document.getElementById('newDisplayName').value.trim();
+  const urlPatterns = document.getElementById('newUrlPatterns').value.split(',').map(s => s.trim()).filter(Boolean);
+
+  if (!siteId || !displayName) { toast('Site ID and Display Name are required', 'error'); return; }
+
+  const config = {
+    siteId,
+    displayName,
+    extends: 'default',
+    urlPatterns,
+    whitelistedElements: [],
+    blacklistedElements: [],
+    allowedSubmissions: [],
+  };
+
+  await saveConfig(siteId, config);
+  hideNewCarrierModal();
+  selectConfig(siteId);
+}
+
+// ── Resolved view ──
+async function showResolved(siteId) {
+  const resolved = await fetchResolved(siteId);
+  const main = document.getElementById('mainContent');
+  const backBtn = `<button class="btn btn-outline" onclick="selectConfig('${siteId}')" style="margin-bottom:16px">← Back to Editor</button>`;
+  main.innerHTML = `
+    ${backBtn}
+    <div class="card">
+      <div class="card-header"><h2>👁️ Resolved Configuration — ${siteId}</h2></div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">This is the final merged config (default + carrier overrides) that the engine uses</p>
+      <div class="resolved-preview">${JSON.stringify(resolved, null, 2)}</div>
+    </div>
+  `;
+}
+
+// ── Utils ──
+function esc(str) { return String(str).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+function toast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ── Init ──
+fetchConfigs();
+</script>
+</body>
+</html>
+

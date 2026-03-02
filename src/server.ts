@@ -7,7 +7,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { GuardrailEngine } from './guardrail/engine';
 import { BrowserAgent } from './agent/agent';
 import { AgentContext, PageState, ActionHistoryEntry, ProposedAction, GuardrailDecision } from './types';
-import { getConfigForUrl } from './configs/config-loader';
+import { getConfigForUrl, getAllConfigs, getResolvedConfig, saveDefaultConfig, saveCarrierConfig, deleteCarrierConfig, reloadConfigs } from './configs/config-loader';
+import path from 'path';
 
 const app = express();
 app.use(cors());
@@ -189,7 +190,74 @@ app.post('/api/reset', (_req, res) => {
   res.json({ ok: true });
 });
 
+// ═══════════════════════════════════════════════════════════════
+// ADMIN: Serve dashboard UI
+// ═══════════════════════════════════════════════════════════════
+app.use('/admin', express.static(path.join(__dirname, '..', 'admin')));
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN API: Config management
+// ═══════════════════════════════════════════════════════════════
+
+// List all configs (default + carriers)
+app.get('/api/admin/configs', (_req, res) => {
+  try {
+    reloadConfigs();
+    const { default: defaultConfig, carriers } = getAllConfigs();
+    res.json({ default: defaultConfig, carriers });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get resolved (merged) config for a specific siteId
+app.get('/api/admin/configs/:siteId/resolved', (req, res) => {
+  try {
+    reloadConfigs();
+    const config = getResolvedConfig(req.params.siteId);
+    if (!config) return void res.status(404).json({ error: 'Config not found' });
+    res.json(config);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Save default config
+app.put('/api/admin/configs/default', (req, res) => {
+  try {
+    saveDefaultConfig(req.body);
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Save carrier config (create or update)
+app.put('/api/admin/configs/:siteId', (req, res) => {
+  try {
+    if (req.params.siteId === 'default') {
+      return void res.status(400).json({ error: 'Use PUT /api/admin/configs/default for the default config.' });
+    }
+    saveCarrierConfig(req.body);
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete carrier config
+app.delete('/api/admin/configs/:siteId', (req, res) => {
+  try {
+    const deleted = deleteCarrierConfig(req.params.siteId);
+    if (!deleted) return void res.status(404).json({ error: 'Config not found or cannot delete default.' });
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = 3200;
 app.listen(PORT, () => {
-  console.log(`\n  🛡️  Guardrail server running at http://localhost:${PORT}\n`);
+  console.log(`\n  🛡️  Guardrail server running at http://localhost:${PORT}`);
+  console.log(`  📊  Admin dashboard at http://localhost:${PORT}/admin\n`);
 });

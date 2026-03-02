@@ -1,4 +1,4 @@
-import { ProposedAction, PageState, PolicyViolation, AgentContext, SiteConfig } from '../../types';
+import { ProposedAction, PageState, PolicyViolation, AgentContext, SiteConfig, ElementRule } from '../../types';
 
 function isSubmissionAction(action: ProposedAction, config: SiteConfig): boolean {
   if (action.type === 'submit') return true;
@@ -7,6 +7,24 @@ function isSubmissionAction(action: ProposedAction, config: SiteConfig): boolean
     return patterns.some(p => p.test(action.target.text));
   }
   return false;
+}
+
+function isAllowedSubmission(action: ProposedAction, page: PageState, config: SiteConfig): boolean {
+  return config.allowedSubmissions.some(rule => matchesRule(action, page, rule));
+}
+
+function matchesRule(action: ProposedAction, page: PageState, rule: ElementRule): boolean {
+  const text = action.target.text?.toLowerCase() ?? '';
+
+  if (rule.text && !text.includes(rule.text.toLowerCase())) return false;
+  if (rule.urlPattern) {
+    const urlRegex = rule.urlPattern
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*/g, '.*');
+    if (!new RegExp(urlRegex, 'i').test(page.url)) return false;
+  }
+
+  return true;
 }
 
 export function evaluateSubmission(
@@ -18,10 +36,13 @@ export function evaluateSubmission(
   if (!config.policySettings.submissionGuard.enabled) return [];
   if (!isSubmissionAction(action, config)) return [];
 
+  // If this submission is explicitly allowed in the carrier config, skip all checks
+  if (isAllowedSubmission(action, page, config)) return [];
+
   const violations: PolicyViolation[] = [];
   const severity = config.policySettings.submissionGuard.submissionSeverity ?? 'critical';
 
-  // ── Autonomous submission: always blocked ──
+  // ── Autonomous submission: blocked by default ──
   violations.push({
     policyId: 'submission-autonomous-blocked',
     policyName: 'Autonomous Submission Prevention',

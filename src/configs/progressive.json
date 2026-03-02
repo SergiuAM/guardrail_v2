@@ -46,6 +46,24 @@
             "reason": "Enters edit mode on an active policy"
         }
     ],
+    "allowedSubmissions": [
+        {
+            "text": "Next",
+            "urlPattern": "*/quote/*",
+            "reason": "Navigate between quote steps"
+        },
+        {
+            "text": "Continue",
+            "urlPattern": "*/quote/*",
+            "reason": "Navigate between quote steps"
+        },
+        {
+            "text": "Save & Continue",
+            "urlPattern": "*/quote/*",
+            "reason": "Save current step and proceed"
+        }
+    ],
+
     "addDestructivePatterns": [
         "cancel policy",
         "withdraw",

@@ -97,6 +97,9 @@ export interface SiteConfig {
   whitelistedElements: ElementRule[];
   blacklistedElements: ElementRule[];
 
+  // Allowed submissions (these bypass the submission guard)
+  allowedSubmissions: ElementRule[];
+
   // Pattern lists (all patterns are case-insensitive regex strings)
   destructivePatterns: string[];
   irreversiblePatterns: string[];
@@ -130,6 +133,7 @@ export interface CarrierConfigOverride {
   // Element-level rules (carrier-specific)
   whitelistedElements?: ElementRule[];
   blacklistedElements?: ElementRule[];
+  allowedSubmissions?: ElementRule[];
 
   // Add/remove patterns relative to default
   addDestructivePatterns?: string[];
