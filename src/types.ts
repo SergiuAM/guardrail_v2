@@ -119,6 +119,43 @@ export interface SiteConfig {
   };
 }
 
+// Carrier Config Override (raw JSON format — merged with default by config-loader)
+
+export interface CarrierConfigOverride {
+  siteId: string;
+  displayName: string;
+  extends: 'default';
+  urlPatterns: string[];
+
+  // Element-level rules (carrier-specific)
+  whitelistedElements?: ElementRule[];
+  blacklistedElements?: ElementRule[];
+
+  // Add/remove patterns relative to default
+  addDestructivePatterns?: string[];
+  removeDestructivePatterns?: string[];
+  addIrreversiblePatterns?: string[];
+  removeIrreversiblePatterns?: string[];
+  addSubmissionPatterns?: string[];
+  removeSubmissionPatterns?: string[];
+  addSafePatterns?: string[];
+
+  // Page type detection hints (CSS selectors)
+  pageTypeIndicators?: {
+    confirmation?: string[];
+    error?: string[];
+    login?: string[];
+  };
+
+  // Per-policy overrides (partial — only what differs from default)
+  policySettings?: Partial<{
+    destructiveActionGuard: Partial<PolicySettings>;
+    submissionGuard: Partial<PolicySettings>;
+    pageSafetyGuard: Partial<PolicySettings>;
+    loopDetector: Partial<PolicySettings>;
+  }>;
+}
+
 // Agent Session Context
 
 export interface ActionHistoryEntry {
