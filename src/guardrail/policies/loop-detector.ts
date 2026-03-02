@@ -1,7 +1,5 @@
-import { ProposedAction, PolicyViolation, ActionHistoryEntry } from '../../types';
+import { ProposedAction, PolicyViolation, ActionHistoryEntry, SiteConfig } from '../../types';
 
-const MAX_IDENTICAL_ACTIONS = 3;
-const MAX_ACTIONS_PER_MINUTE = 30;
 const LOOP_WINDOW_MS = 60_000;
 
 function actionsAreSimilar(a: ProposedAction, b: ProposedAction): boolean {
@@ -12,24 +10,31 @@ function actionsAreSimilar(a: ProposedAction, b: ProposedAction): boolean {
 
 export function evaluateLoopRisk(
   proposedAction: ProposedAction,
-  history: ActionHistoryEntry[]
+  history: ActionHistoryEntry[],
+  config: SiteConfig
 ): PolicyViolation[] {
-  const violations: PolicyViolation[] = [];
+  if (!config.policySettings.loopDetector.enabled) return [];
 
+  const violations: PolicyViolation[] = [];
+  const maxIdentical = config.policySettings.loopDetector.maxIdenticalActions ?? 3;
+  const maxPerMinute = config.policySettings.loopDetector.maxActionsPerMinute ?? 30;
+
+  // ── Identical action loop: same action repeated N+ times in last 10 ──
   const recentIdentical = history
     .slice(-10)
     .filter(h => actionsAreSimilar(h.action, proposedAction));
 
-  if (recentIdentical.length >= MAX_IDENTICAL_ACTIONS) {
+  if (recentIdentical.length >= maxIdentical) {
     violations.push({
       policyId: 'loop-identical-actions',
       policyName: 'Identical Action Loop Detection',
       severity: 'medium',
-      message: `Action "${proposedAction.description}" has been attempted ${recentIdentical.length} times. Possible loop.`,
+      message: `Action "${proposedAction.description}" has been attempted ${recentIdentical.length} times (limit: ${maxIdentical}). Possible loop.`,
       suggestion: 'Skip this action and try something else, or advance to the next page.',
     });
   }
 
+  // ── Consecutive repeat: same action 2+ times in a row ──
   const consecutiveSame: ActionHistoryEntry[] = [];
   for (let i = history.length - 1; i >= 0; i--) {
     if (actionsAreSimilar(history[i].action, proposedAction)) {
@@ -49,21 +54,23 @@ export function evaluateLoopRisk(
     });
   }
 
+  // ── Rate limit: too many actions in last minute ──
   const windowStart = Date.now() - LOOP_WINDOW_MS;
   const recentActions = history.filter(h =>
     h.action.timestamp > windowStart || (h.executedAt && h.executedAt > windowStart)
   );
 
-  if (recentActions.length >= MAX_ACTIONS_PER_MINUTE) {
+  if (recentActions.length >= maxPerMinute) {
     violations.push({
       policyId: 'loop-rate-limit',
       policyName: 'Action Rate Limit',
       severity: 'medium',
-      message: `${recentActions.length} actions in the last minute (limit: ${MAX_ACTIONS_PER_MINUTE}). Agent may be thrashing.`,
+      message: `${recentActions.length} actions in the last minute (limit: ${maxPerMinute}). Agent may be thrashing.`,
       suggestion: 'Slow down. Wait for page responses before taking further action.',
     });
   }
 
+  // ── Oscillation detection: A→B→A→B pattern ──
   const last5 = history.slice(-5).map(h => `${h.action.type}:${h.action.target.id}`);
   if (last5.length >= 4) {
     const pattern2 = `${last5[last5.length - 2]},${last5[last5.length - 1]}`;

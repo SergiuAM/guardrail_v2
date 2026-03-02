@@ -1,4 +1,4 @@
-import { ProposedAction, PageState, PolicyViolation, AgentContext } from '../../types';
+import { ProposedAction, PageState, PolicyViolation, AgentContext, SiteConfig } from '../../types';
 
 const SUBMIT_PATTERNS = [
   /submit/i, /finalize/i, /complete/i, /process/i,
@@ -16,20 +16,36 @@ function isSubmissionAction(action: ProposedAction): boolean {
 export function evaluateSubmission(
   action: ProposedAction,
   page: PageState,
-  context: AgentContext
+  context: AgentContext,
+  config: SiteConfig
 ): PolicyViolation[] {
+  if (!config.policySettings.submissionGuard.enabled) return [];
+  if (!isSubmissionAction(action)) return [];
+
   const violations: PolicyViolation[] = [];
+  const severity = config.policySettings.submissionGuard.submissionSeverity ?? 'critical';
 
-  if (!isSubmissionAction(action)) return violations;
-
+  // ── Autonomous submission: always blocked ──
   violations.push({
     policyId: 'submission-autonomous-blocked',
     policyName: 'Autonomous Submission Prevention',
-    severity: 'critical',
+    severity,
     message: `Agent attempted autonomous submission: "${action.target.text}". Final submissions must be human-initiated.`,
     suggestion: 'Flag for human review. The agent must never submit quotes, payments, or binding actions autonomously.',
   });
 
+  // ── Submission on confirmation page: quote already submitted ──
+  if (page.pageType === 'CONFIRMATION') {
+    violations.push({
+      policyId: 'submission-post-confirmation',
+      policyName: 'Post-Confirmation Submission Prevention',
+      severity: 'high',
+      message: 'Attempted submission on a confirmation page. The quote is already submitted.',
+      suggestion: 'No further submissions needed. Only navigate to dashboard or start new quote.',
+    });
+  }
+
+  // ── Submission with validation errors ──
   if (page.hasValidationErrors) {
     violations.push({
       policyId: 'submission-with-errors',
@@ -40,6 +56,7 @@ export function evaluateSubmission(
     });
   }
 
+  // ── Submission with incomplete required fields ──
   const requiredFields = page.fields.filter(f => f.attributes?.required === 'true');
   const emptyRequired = requiredFields.filter(f => {
     const val = f.attributes?.value ?? '';
@@ -58,5 +75,3 @@ export function evaluateSubmission(
 
   return violations;
 }
-
-

@@ -70,6 +70,45 @@ export interface GuardrailDecision {
   timestamp: number;
 }
 
+// Site Configuration Types
+
+export interface ElementRule {
+  text?: string;
+  selector?: string;
+  urlPattern?: string;
+  severity?: RiskLevel;
+  reason: string;
+}
+
+export interface PolicySettings {
+  enabled: boolean;
+  maxIdenticalActions?: number;
+  maxActionsPerMinute?: number;
+  maxPageAgeMs?: number;
+  submissionSeverity?: RiskLevel;
+}
+
+export interface SiteConfig {
+  siteId: string;
+  displayName: string;
+  urlPatterns: string[];
+  whitelistedElements: ElementRule[];
+  blacklistedElements: ElementRule[];
+  customDestructivePatterns?: string[];
+  customSafePatterns?: string[];
+  pageTypeIndicators?: {
+    confirmation?: string[];
+    error?: string[];
+    login?: string[];
+  };
+  policySettings: {
+    destructiveActionGuard: PolicySettings;
+    submissionGuard: PolicySettings;
+    pageSafetyGuard: PolicySettings;
+    loopDetector: PolicySettings;
+  };
+}
+
 // Agent Session Context
 
 export interface ActionHistoryEntry {

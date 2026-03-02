@@ -1,0 +1,76 @@
+{
+  "siteId": "progressive",
+  "displayName": "Progressive Insurance",
+  "urlPatterns": ["*.progressive.com/*", "*progressive*"],
+
+  "whitelistedElements": [
+    {
+      "text": "Remove Vehicle",
+      "reason": "Safe — removes a vehicle from the quote list, not a destructive action"
+    },
+    {
+      "text": "Clear",
+      "urlPattern": "*/quote/*",
+      "reason": "Safe — clears current form step during quoting"
+    }
+  ],
+
+  "blacklistedElements": [
+    {
+      "selector": ".navbar-brand, .logo-link, .header-logo a",
+      "severity": "high",
+      "reason": "Navigates away from quoting flow to policy list"
+    },
+    {
+      "text": "Bind Policy",
+      "severity": "critical",
+      "reason": "Irreversible — binds an insurance policy"
+    },
+    {
+      "text": "Process Payment",
+      "severity": "critical",
+      "reason": "Irreversible — processes a financial transaction"
+    },
+    {
+      "text": "Save",
+      "urlPattern": "*/policy/*",
+      "severity": "critical",
+      "reason": "Saves changes to an active policy — dangerous outside quoting"
+    },
+    {
+      "text": "Edit",
+      "urlPattern": "*/policy/*",
+      "severity": "high",
+      "reason": "Enters edit mode on an active policy"
+    }
+  ],
+
+  "customDestructivePatterns": ["cancel policy", "withdraw", "void"],
+  "customSafePatterns": ["add vehicle", "add driver", "get quote", "save quote"],
+
+  "pageTypeIndicators": {
+    "confirmation": [".quote-confirmation", "#success-banner", ".confirmation-number"],
+    "error": [".alert-danger", "#error-container", ".validation-summary"],
+    "login": ["#loginForm", ".login-container"]
+  },
+
+  "policySettings": {
+    "destructiveActionGuard": {
+      "enabled": true
+    },
+    "submissionGuard": {
+      "enabled": true,
+      "submissionSeverity": "critical"
+    },
+    "pageSafetyGuard": {
+      "enabled": true,
+      "maxPageAgeMs": 180000
+    },
+    "loopDetector": {
+      "enabled": true,
+      "maxIdenticalActions": 3,
+      "maxActionsPerMinute": 25
+    }
+  }
+}
+

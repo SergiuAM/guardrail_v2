@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { GuardrailEngine } from './guardrail/engine';
 import { BrowserAgent } from './agent/agent';
 import { AgentContext, PageState, ActionHistoryEntry, ProposedAction, GuardrailDecision } from './types';
+import { getConfigForUrl } from './configs/config-loader';
 
 const app = express();
 app.use(cors());
@@ -132,8 +133,9 @@ app.post('/api/evaluate-live', async (req, res) => {
   const { agentContext, sessionId } = getOrCreateSession(page, reqSessionId);
 
   try {
+    const siteConfig = getConfigForUrl(page.url);
     const action = await agent.proposeAction(agentContext);
-    const decision = engine.evaluate(action, agentContext);
+    const decision = engine.evaluate(action, agentContext, siteConfig);
     recordEntry(agentContext, action, decision);
 
     res.json({
@@ -163,8 +165,9 @@ app.post('/api/evaluate-command', async (req, res) => {
   const { agentContext, sessionId } = getOrCreateSession(page, reqSessionId);
 
   try {
+    const siteConfig = getConfigForUrl(page.url);
     const action = await agent.proposeCommandAction(agentContext, command);
-    const decision = engine.evaluate(action, agentContext);
+    const decision = engine.evaluate(action, agentContext, siteConfig);
     recordEntry(agentContext, action, decision);
 
     res.json({

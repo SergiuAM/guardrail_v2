@@ -1,31 +1,26 @@
 import {
   ProposedAction, AgentContext, GuardrailDecision,
-  GuardrailVerdict, PolicyViolation, RiskLevel,
+  GuardrailVerdict, PolicyViolation, RiskLevel, SiteConfig,
 } from '../types';
-import { evaluateActionRisk, classifyActionRisk } from './policies/action-risk';
-import { evaluateWorkflowCompliance } from './policies/workflow-guard';
-import { evaluateLoopRisk } from './policies/loop-detector';
-import { evaluatePageSafety, evaluateEnvironment } from './policies/page-classifier';
+import { evaluateDestructiveAction, classifyActionRisk } from './policies/destructive-action-guard';
 import { evaluateSubmission } from './policies/submission-guard';
-import { evaluateStalePage } from './policies/stale-page-guard';
+import { evaluatePageSafety } from './policies/page-safety-guard';
+import { evaluateLoopRisk } from './policies/loop-detector';
 
 export class GuardrailEngine {
   evaluationLog: GuardrailDecision[] = [];
 
-  evaluate(action: ProposedAction, context: AgentContext): GuardrailDecision {
+  evaluate(action: ProposedAction, context: AgentContext, config: SiteConfig): GuardrailDecision {
     const allViolations: PolicyViolation[] = [];
 
-    allViolations.push(...evaluateActionRisk(action, context.currentPage));
-    allViolations.push(...evaluateWorkflowCompliance(action, context.currentPage));
-    allViolations.push(...evaluateLoopRisk(action, context.actionHistory));
-    allViolations.push(...evaluatePageSafety(action, context.currentPage));
-    allViolations.push(...evaluateSubmission(action, context.currentPage, context));
-    allViolations.push(...evaluateStalePage(action, context.currentPage));
-    allViolations.push(...evaluateEnvironment(context.currentPage));
+    allViolations.push(...evaluateDestructiveAction(action, context.currentPage, config));
+    allViolations.push(...evaluateSubmission(action, context.currentPage, context, config));
+    allViolations.push(...evaluatePageSafety(action, context.currentPage, config));
+    allViolations.push(...evaluateLoopRisk(action, context.actionHistory, config));
 
-    const riskLevel = classifyActionRisk(action, context.currentPage);
+    const riskLevel = classifyActionRisk(action, context.currentPage, config);
     const verdict = this.determineVerdict(allViolations);
-    const reasoning = this.buildReasoning(allViolations, riskLevel, verdict);
+    const reasoning = this.buildReasoning(allViolations, verdict);
 
     const decision: GuardrailDecision = {
       verdict,
@@ -54,13 +49,9 @@ export class GuardrailEngine {
     return 'ALLOW';
   }
 
-  buildReasoning(
-    violations: PolicyViolation[],
-    riskLevel: RiskLevel,
-    verdict: GuardrailVerdict
-  ): string {
+  buildReasoning(violations: PolicyViolation[], verdict: GuardrailVerdict): string {
     if (violations.length === 0) {
-      return `Action classified as ${riskLevel} risk. No policy violations detected. Allowing execution.`;
+      return 'No policy violations detected. Allowing execution.';
     }
 
     const critical = violations.filter(v => v.severity === 'critical');
@@ -93,5 +84,3 @@ function severityScore(s: RiskLevel): number {
     case 'safe': return 0;
   }
 }
-
-
