@@ -81,5 +81,3 @@ export function evaluateLoopRisk(
 
   return violations;
 }
-
-
