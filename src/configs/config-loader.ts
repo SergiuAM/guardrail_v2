@@ -141,60 +141,60 @@ export function getConfigForUrl(url: string): SiteConfig {
  * Force reload configs from disk (useful for hot-reload or testing).
  */
 export function reloadConfigs(): void {
-  cachedDefault = null;
-  cachedCarriers = null;
+    cachedDefault = null;
+    cachedCarriers = null;
 }
 
 /**
  * Returns all configs: default + all carriers (raw, unmerged).
  */
 export function getAllConfigs(): { default: SiteConfig; carriers: CarrierConfigOverride[] } {
-  return { default: loadDefault(), carriers: loadCarriers() };
+    return { default: loadDefault(), carriers: loadCarriers() };
 }
 
 /**
  * Returns a resolved (merged) config for a specific carrier by siteId.
  */
 export function getResolvedConfig(siteId: string): SiteConfig | null {
-  if (siteId === 'default') return loadDefault();
-  const carriers = loadCarriers();
-  const carrier = carriers.find(c => c.siteId === siteId);
-  if (!carrier) return null;
-  return mergeConfigs(loadDefault(), carrier);
+    if (siteId === 'default') return loadDefault();
+    const carriers = loadCarriers();
+    const carrier = carriers.find(c => c.siteId === siteId);
+    if (!carrier) return null;
+    return mergeConfigs(loadDefault(), carrier);
 }
 
 /**
  * Save default config to disk.
  */
 export function saveDefaultConfig(config: SiteConfig): void {
-  fs.writeFileSync(
-    path.join(configsDir, 'default.json'),
-    JSON.stringify(config, null, 2),
-    'utf-8'
-  );
-  cachedDefault = null;
+    fs.writeFileSync(
+        path.join(configsDir, 'default.json'),
+        JSON.stringify(config, null, 2),
+        'utf-8'
+    );
+    cachedDefault = null;
 }
 
 /**
  * Save carrier config to disk.
  */
 export function saveCarrierConfig(config: CarrierConfigOverride): void {
-  fs.writeFileSync(
-    path.join(configsDir, `${config.siteId}.json`),
-    JSON.stringify(config, null, 2),
-    'utf-8'
-  );
-  cachedCarriers = null;
+    fs.writeFileSync(
+        path.join(configsDir, `${config.siteId}.json`),
+        JSON.stringify(config, null, 2),
+        'utf-8'
+    );
+    cachedCarriers = null;
 }
 
 /**
  * Delete a carrier config from disk.
  */
 export function deleteCarrierConfig(siteId: string): boolean {
-  if (siteId === 'default') return false;
-  const filePath = path.join(configsDir, `${siteId}.json`);
-  if (!fs.existsSync(filePath)) return false;
-  fs.unlinkSync(filePath);
-  cachedCarriers = null;
-  return true;
+    if (siteId === 'default') return false;
+    const filePath = path.join(configsDir, `${siteId}.json`);
+    if (!fs.existsSync(filePath)) return false;
+    fs.unlinkSync(filePath);
+    cachedCarriers = null;
+    return true;
 }

@@ -3,15 +3,23 @@
   "name": "Gaya Guardrail",
   "version": "1.0.0",
   "description": "LLM UI Action Guardrails for Gaya Browser Automation",
-  "permissions": ["activeTab"],
+  "permissions": [
+    "activeTab"
+  ],
   "host_permissions": [
     "<all_urls>"
   ],
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "css": ["panel.css"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "panel.css"
+      ],
       "run_at": "document_idle"
     }
   ],
@@ -20,5 +28,3 @@
     "128": "icon128.png"
   }
 }
-
-
