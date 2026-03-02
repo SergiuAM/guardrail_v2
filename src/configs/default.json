@@ -1,33 +1,34 @@
 {
-  "siteId": "default",
-  "displayName": "Default Policy",
-  "urlPatterns": ["*"],
-  "whitelistedElements": [],
-  "blacklistedElements": [],
-  "customDestructivePatterns": [],
-  "customSafePatterns": [],
-  "pageTypeIndicators": {
-    "confirmation": [],
-    "error": [],
-    "login": []
-  },
-  "policySettings": {
-    "destructiveActionGuard": {
-      "enabled": true
+    "siteId": "default",
+    "displayName": "Default Policy",
+    "urlPatterns": [
+        "*"
+    ],
+    "whitelistedElements": [],
+    "blacklistedElements": [],
+    "customDestructivePatterns": [],
+    "customSafePatterns": [],
+    "pageTypeIndicators": {
+        "confirmation": [],
+        "error": [],
+        "login": []
     },
-    "submissionGuard": {
-      "enabled": true,
-      "submissionSeverity": "critical"
-    },
-    "pageSafetyGuard": {
-      "enabled": true,
-      "maxPageAgeMs": 300000
-    },
-    "loopDetector": {
-      "enabled": true,
-      "maxIdenticalActions": 3,
-      "maxActionsPerMinute": 30
+    "policySettings": {
+        "destructiveActionGuard": {
+            "enabled": true
+        },
+        "submissionGuard": {
+            "enabled": true,
+            "submissionSeverity": "critical"
+        },
+        "pageSafetyGuard": {
+            "enabled": true,
+            "maxPageAgeMs": 300000
+        },
+        "loopDetector": {
+            "enabled": true,
+            "maxIdenticalActions": 3,
+            "maxActionsPerMinute": 30
+        }
     }
-  }
 }
-

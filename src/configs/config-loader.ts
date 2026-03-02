@@ -10,16 +10,16 @@ let cachedConfigs: SiteConfig[] | null = null;
  * Configs are cached after first load for performance.
  */
 function loadAllConfigs(): SiteConfig[] {
-  if (cachedConfigs) return cachedConfigs;
+    if (cachedConfigs) return cachedConfigs;
 
-  const files = fs.readdirSync(configsDir).filter(f => f.endsWith('.json'));
+    const files = fs.readdirSync(configsDir).filter(f => f.endsWith('.json'));
 
-  cachedConfigs = files.map(file => {
-    const raw = fs.readFileSync(path.join(configsDir, file), 'utf-8');
-    return JSON.parse(raw) as SiteConfig;
-  });
+    cachedConfigs = files.map(file => {
+        const raw = fs.readFileSync(path.join(configsDir, file), 'utf-8');
+        return JSON.parse(raw) as SiteConfig;
+    });
 
-  return cachedConfigs;
+    return cachedConfigs;
 }
 
 /**
@@ -27,11 +27,11 @@ function loadAllConfigs(): SiteConfig[] {
  * Supports simple wildcard patterns: *.progressive.com/*
  */
 function urlMatchesPattern(url: string, pattern: string): boolean {
-  const regexStr = pattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')  // escape special regex chars (except *)
-    .replace(/\*/g, '.*');                    // convert * to .*
+    const regexStr = pattern
+        .replace(/[.+^${}()|[\]\\]/g, '\\$&')  // escape special regex chars (except *)
+        .replace(/\*/g, '.*');                    // convert * to .*
 
-  return new RegExp(`^${regexStr}$`, 'i').test(url);
+    return new RegExp(`^${regexStr}$`, 'i').test(url);
 }
 
 /**
@@ -40,28 +40,28 @@ function urlMatchesPattern(url: string, pattern: string): boolean {
  * Falls back to default.json if no site-specific match is found.
  */
 export function getConfigForUrl(url: string): SiteConfig {
-  const configs = loadAllConfigs();
+    const configs = loadAllConfigs();
 
-  // Try site-specific configs first (skip default)
-  const siteMatch = configs.find(config =>
-    config.siteId !== 'default' &&
-    config.urlPatterns.some(pattern => urlMatchesPattern(url, pattern))
-  );
+    // Try site-specific configs first (skip default)
+    const siteMatch = configs.find(config =>
+        config.siteId !== 'default' &&
+        config.urlPatterns.some(pattern => urlMatchesPattern(url, pattern))
+    );
 
-  if (siteMatch) return siteMatch;
+    if (siteMatch) return siteMatch;
 
-  // Fall back to default
-  const defaultConfig = configs.find(c => c.siteId === 'default');
-  if (defaultConfig) return defaultConfig;
+    // Fall back to default
+    const defaultConfig = configs.find(c => c.siteId === 'default');
+    if (defaultConfig) return defaultConfig;
 
-  // Should never happen, but just in case
-  throw new Error('No default site config found. Create configs/default.json.');
+    // Should never happen, but just in case
+    throw new Error('No default site config found. Create configs/default.json.');
 }
 
 /**
  * Force reload configs from disk (useful for hot-reload or testing).
  */
 export function reloadConfigs(): void {
-  cachedConfigs = null;
+    cachedConfigs = null;
 }
 
