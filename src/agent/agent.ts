@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { v4 as uuidv4 } from 'uuid';
 import { ProposedAction, PageState, AgentContext, ActionType, UIElement } from '../types';
 
 let client: Anthropic | null = null;
@@ -15,7 +16,7 @@ You see the current page state (URL, title, fields, buttons, links, visible text
 
 RESPOND WITH EXACTLY ONE JSON OBJECT (no markdown, no explanation):
 {
-  "actionType": "click" | "fill" | "select" | "navigate" | "submit" | "wait",
+  "actionType": "click" | "fill" | "select" | "submit" | "wait",
   "targetId": "the id of the element to interact with",
   "value": "value to fill (for fill/select actions) or null",
   "reasoning": "brief explanation of why this action"
@@ -24,7 +25,7 @@ RESPOND WITH EXACTLY ONE JSON OBJECT (no markdown, no explanation):
 DECISION LOGIC — think step by step:
 1. Is there a "Gaya Super-Paste" button (id=gaya-super-paste)? → Click it FIRST. It auto-fills ALL fields from clipboard data. This is always the best first step.
 2. After Gaya paste has been clicked (it will disappear from the page), check: are there still empty required fields? → Propose "fill" or "select" for the NEXT empty one.
-3. Are all required fields filled (or mostly filled, only optional remain)? → Click the navigation button (Next, Continue, Products →) to advance.
+3. Are all required fields filled (or mostly filled, only optional remain)? → Click the navigation button (Next, Continue, or similar) to advance.
 4. Is this a confirmation/success page? → Propose "wait" to signal completion.
 
 RULES:
@@ -33,7 +34,7 @@ RULES:
 - NEVER try the same action twice. If you already attempted a field and it didn't work, SKIP it and move on.
 - If all REQUIRED fields are filled, click the navigation button immediately — do NOT try to fill optional empty fields (Suffix, Middle Initial, etc.)
 - For select/dropdown: pick from the available OPTIONS listed. If no option fits, SKIP the field.
-- For navigation: click "Products →", "Next", "Continue", "Additional Details →", or similar advancement buttons
+- For navigation: click "Next", "Continue", or similar advancement buttons
 - The guardrail system evaluates every action — feel free to propose risky actions if they seem right`;
 
 const COMMAND_SYSTEM_PROMPT = `You are a browser automation agent. The user has given you a DIRECT COMMAND to execute on the page.
@@ -43,7 +44,7 @@ You are given the current page state and a user command. Find the element that b
 
 RESPOND WITH EXACTLY ONE JSON OBJECT (no markdown, no explanation):
 {
-  "actionType": "click" | "fill" | "select" | "navigate" | "submit",
+  "actionType": "click" | "fill" | "select" | "submit",
   "targetId": "the id of the element to interact with",
   "value": "value to fill (for fill/select) or null",
   "reasoning": "what you are doing and why"
@@ -65,51 +66,51 @@ interface LLMActionResponse {
 }
 
 export class BrowserAgent {
-  private model: string;
+  model: string;
 
   constructor(model: string = 'claude-sonnet-4-5') {
     this.model = model;
   }
 
-  private async callLLM(system: string, userContent: string, maxTokens = 500): Promise<string> {
+  async callLLM(systemPrompt: string, userContent: string): Promise<string> {
     const api = getClient();
     const response = await api.messages.create({
       model: this.model,
-      max_tokens: maxTokens,
-      system,
+      max_tokens: Number(process.env.LLM_MAX_TOKENS || 500),
+      system: systemPrompt,
       messages: [{ role: 'user', content: userContent }],
     });
     const raw = response.content[0]?.type === 'text' ? response.content[0].text : '{}';
     return raw.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
   }
 
-  private parseSingle(json: string): LLMActionResponse {
-    try { return JSON.parse(json); } catch {
+  parseSingle(jsonResponse: string): LLMActionResponse {
+    try { return JSON.parse(jsonResponse); } catch {
       return { actionType: 'wait', targetId: '', value: null, reasoning: 'Failed to parse LLM response.' };
     }
   }
 
-  private toAction(parsed: LLMActionResponse, page: PageState, prefix = 'action'): ProposedAction {
+  toAction(parsedResponse: LLMActionResponse, page: PageState): ProposedAction {
     return {
-      id: `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      type: parsed.actionType,
-      target: this.findTarget(parsed.targetId, page),
-      value: parsed.value ?? undefined,
-      description: parsed.reasoning,
+      id: uuidv4(),
+      type: parsedResponse.actionType,
+      target: this.findTarget(parsedResponse.targetId, page),
+      value: parsedResponse.value ?? undefined,
+      description: parsedResponse.reasoning,
       timestamp: Date.now(),
     };
   }
 
-  async proposeAction(context: AgentContext): Promise<ProposedAction> {
-    const desc = this.buildPageDescription(context.currentPage, context);
-    const json = await this.callLLM(AGENT_SYSTEM_PROMPT, desc);
-    return this.toAction(this.parseSingle(json), context.currentPage);
+  async proposeAction(agentContext: AgentContext): Promise<ProposedAction> {
+    const pageDescription = this.buildPageDescription(agentContext.currentPage, agentContext);
+    const jsonResponse = await this.callLLM(AGENT_SYSTEM_PROMPT, pageDescription);
+    return this.toAction(this.parseSingle(jsonResponse), agentContext.currentPage);
   }
 
-  async proposeCommandAction(context: AgentContext, command: string): Promise<ProposedAction> {
-    const desc = this.buildPageDescription(context.currentPage, context);
-    const json = await this.callLLM(COMMAND_SYSTEM_PROMPT, `USER COMMAND: ${command}\n\n${desc}`);
-    return this.toAction(this.parseSingle(json), context.currentPage, 'cmd');
+  async proposeCommandAction(agentContext: AgentContext, command: string): Promise<ProposedAction> {
+    const pageDescription = this.buildPageDescription(agentContext.currentPage, agentContext);
+    const jsonResponse = await this.callLLM(COMMAND_SYSTEM_PROMPT, `USER COMMAND: ${command}\n\n${pageDescription}`);
+    return this.toAction(this.parseSingle(jsonResponse), agentContext.currentPage);
   }
 
   buildPageDescription(page: PageState, context: AgentContext): string {
@@ -126,11 +127,11 @@ export class BrowserAgent {
     if (page.fields.length > 0) {
       parts.push('\nFIELDS:');
       for (const f of page.fields) {
-        const val = f.attributes?.value ?? '';
-        const req = f.attributes?.required === 'true' ? ' [REQUIRED]' : ' [optional]';
-        const filled = val ? ` (current: "${val}")` : ' (empty)';
+        const value = f.attributes?.value ?? '';
+        const required = f.attributes?.required === 'true' ? ' [REQUIRED]' : ' [optional]';
+        const filled = value ? ` (current: "${value}")` : ' (empty)';
         const opts = f.attributes?.options ? ` OPTIONS: [${f.attributes.options}]` : '';
-        parts.push(`  - ${f.text} (id=${f.id}, type=${f.type})${req}${filled}${opts}`);
+        parts.push(`  - ${f.text} (id=${f.id}, type=${f.type})${required}${filled}${opts}`);
       }
     }
 

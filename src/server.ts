@@ -3,9 +3,10 @@ dotenv.config();
 
 import express from 'express';
 import cors from 'cors';
+import { v4 as uuidv4 } from 'uuid';
 import { GuardrailEngine } from './guardrail/engine';
 import { BrowserAgent } from './agent/agent';
-import { AgentContext, PageState, ActionHistoryEntry } from './types';
+import { AgentContext, PageState, ActionHistoryEntry, ProposedAction, GuardrailDecision } from './types';
 
 const app = express();
 app.use(cors());
@@ -18,12 +19,10 @@ const sessions: Record<string, AgentContext> = {};
 
 function makeContext(page: PageState, overrides?: Partial<AgentContext>): AgentContext {
   return {
-    sessionId: `session_${Date.now()}`,
+    sessionId: uuidv4(),
     actionHistory: [],
     currentPage: page,
-    previousPages: [],
     filledFields: {},
-    submittedForms: [],
     startedAt: Date.now(),
     ...overrides,
   };
@@ -35,53 +34,66 @@ function snapshotToPageState(snapshot: any): PageState {
     title: snapshot.title || 'unknown',
     pageType: snapshot.pageType || 'UNKNOWN',
     environment: snapshot.environment || 'unknown',
-    fields: (snapshot.fields || []).map((f: any) => ({
-      id: f.id, tag: f.tag || 'input', text: f.text || f.id,
-      type: f.type, visible: f.visible !== false, disabled: f.disabled || false,
-      classes: f.classes, attributes: f.attributes,
+    fields: (snapshot.fields || []).map((field: any) => ({
+      id: field.id,
+      tag: field.tag || 'input',
+      text: field.text || field.id,
+      type: field.type,
+      visible: field.visible !== false,
+      disabled: field.disabled || false,
+      classes: field.classes,
+      attributes: field.attributes,
     })),
-    buttons: (snapshot.buttons || []).map((b: any) => ({
-      id: b.id, tag: b.tag || 'button', text: b.text || b.id,
-      type: b.type, visible: b.visible !== false, disabled: b.disabled || false,
-      classes: b.classes, attributes: b.attributes,
+    buttons: (snapshot.buttons || []).map((button: any) => ({
+      id: button.id,
+      tag: button.tag || 'button',
+      text: button.text || button.id,
+      type: button.type,
+      visible: button.visible !== false,
+      disabled: button.disabled || false,
+      classes: button.classes,
+      attributes: button.attributes,
     })),
-    links: (snapshot.links || []).map((l: any) => ({
-      id: l.id, tag: l.tag || 'a', text: l.text || '',
-      visible: l.visible !== false, attributes: l.attributes,
+    links: (snapshot.links || []).map((link: any) => ({
+      id: link.id,
+      tag: link.tag || 'a',
+      text: link.text || '',
+      visible: link.visible !== false,
+      attributes: link.attributes,
     })),
     visibleText: snapshot.visibleText || '',
     hasValidationErrors: snapshot.hasValidationErrors || false,
     errorMessages: snapshot.errorMessages || [],
-    hasUnsavedChanges: snapshot.hasUnsavedChanges || false,
     timestamp: snapshot.timestamp || Date.now(),
   };
 }
 
-function getOrCreateSession(page: PageState, reqSessionId?: string, prefix = 'live'): { ctx: AgentContext; sessionId: string } {
-  const sessionId = reqSessionId || `${prefix}_${Date.now()}`;
+function getOrCreateSession(page: PageState, reqSessionId?: string): { agentContext: AgentContext; sessionId: string } {
+  const sessionId = reqSessionId || uuidv4();
   if (!sessions[sessionId]) {
     sessions[sessionId] = makeContext(page, { sessionId });
   }
-  const ctx = sessions[sessionId];
-  ctx.currentPage = page;
-  return { ctx, sessionId };
+  const agentContext = sessions[sessionId];
+  agentContext.currentPage = page;
+  return { agentContext, sessionId };
 }
 
-function recordEntry(ctx: AgentContext, action: any, decision: any) {
+function recordEntry(agentContext: AgentContext, action: ProposedAction, decision: GuardrailDecision) {
   const entry: ActionHistoryEntry = { action, decision };
+
   if (decision.verdict === 'ALLOW' || decision.verdict === 'FLAG') {
     entry.result = 'success';
     entry.executedAt = Date.now();
     if (action.type === 'fill' && action.value) {
-      ctx.filledFields[action.target.id] = action.value;
+      agentContext.filledFields[action.target.id] = action.value;
     }
   } else {
     entry.result = 'blocked';
   }
-  ctx.actionHistory.push(entry);
+  agentContext.actionHistory.push(entry);
 }
 
-function formatActionResponse(action: any) {
+function formatActionResponse(action: ProposedAction) {
   return {
     id: action.id,
     type: action.type,
@@ -94,7 +106,7 @@ function formatActionResponse(action: any) {
   };
 }
 
-function formatDecisionResponse(decision: any) {
+function formatDecisionResponse(decision: GuardrailDecision) {
   return {
     verdict: decision.verdict,
     riskLevel: decision.riskLevel,
@@ -117,17 +129,16 @@ app.post('/api/evaluate-live', async (req, res) => {
   }
 
   const page = snapshotToPageState(pageSnapshot);
-  const { ctx, sessionId } = getOrCreateSession(page, reqSessionId);
+  const { agentContext, sessionId } = getOrCreateSession(page, reqSessionId);
 
   try {
-    const action = await agent.proposeAction(ctx);
-    const decision = engine.evaluate(action, ctx);
-    recordEntry(ctx, action, decision);
+    const action = await agent.proposeAction(agentContext);
+    const decision = engine.evaluate(action, agentContext);
+    recordEntry(agentContext, action, decision);
 
     res.json({
       action: formatActionResponse(action),
       decision: formatDecisionResponse(decision),
-      context: { filledFields: ctx.filledFields, historyLength: ctx.actionHistory.length },
       sessionId,
     });
   } catch (err: any) {
@@ -149,12 +160,12 @@ app.post('/api/evaluate-command', async (req, res) => {
   }
 
   const page = snapshotToPageState(pageSnapshot);
-  const { ctx, sessionId } = getOrCreateSession(page, reqSessionId, 'cmd');
+  const { agentContext, sessionId } = getOrCreateSession(page, reqSessionId);
 
   try {
-    const action = await agent.proposeCommandAction(ctx, command);
-    const decision = engine.evaluate(action, ctx);
-    recordEntry(ctx, action, decision);
+    const action = await agent.proposeCommandAction(agentContext, command);
+    const decision = engine.evaluate(action, agentContext);
+    recordEntry(agentContext, action, decision);
 
     res.json({
       action: formatActionResponse(action),

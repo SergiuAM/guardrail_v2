@@ -30,17 +30,6 @@ export function evaluateSubmission(
     suggestion: 'Flag for human review. The agent must never submit quotes, payments, or binding actions autonomously.',
   });
 
-  const pageUrl = page.url;
-  if (context.submittedForms.includes(pageUrl)) {
-    violations.push({
-      policyId: 'submission-duplicate',
-      policyName: 'Duplicate Submission Prevention',
-      severity: 'critical',
-      message: `This form/page (${pageUrl}) has already been submitted in this session.`,
-      suggestion: 'Do not submit again. Navigate to dashboard or start a new quote.',
-    });
-  }
-
   if (page.hasValidationErrors) {
     violations.push({
       policyId: 'submission-with-errors',

@@ -15,11 +15,6 @@ const IRREVERSIBLE_PATTERNS = [
   /delete all/i, /remove all/i, /purge/i,
 ];
 
-const NAVIGATION_RISK_PATTERNS = [
-  /admin/i, /settings/i, /system/i, /configuration/i,
-  /user management/i, /billing/i,
-];
-
 function matchesPatterns(text: string, patterns: RegExp[]): boolean {
   return patterns.some(p => p.test(text));
 }
@@ -33,7 +28,6 @@ export function classifyActionRisk(action: ProposedAction, page: PageState): Ris
   if (matchesPatterns(text, DESTRUCTIVE_PATTERNS)) return 'high';
   if (targetClasses.includes('btn-danger')) return 'high';
   if (matchesPatterns(text, SUBMISSION_PATTERNS)) return 'high';
-  if (action.type === 'navigate' && matchesPatterns(text, NAVIGATION_RISK_PATTERNS)) return 'medium';
   if (action.type === 'fill') return 'safe';
   if (action.type === 'wait') return 'safe';
   if (action.type === 'click') return 'low';
@@ -104,18 +98,6 @@ export function evaluateActionRisk(
       message: `Action "${text}" appears irreversible (payment, policy binding, or mass deletion).`,
       suggestion: 'This action requires explicit human authorization before execution.',
     });
-  }
-
-  if (action.type === 'submit' || (action.type === 'click' && matchesPatterns(text, SUBMISSION_PATTERNS))) {
-    if (page.pageType === 'PAYMENT') {
-      violations.push({
-        policyId: 'action-risk-payment-submit',
-        policyName: 'Payment Submission Prevention',
-        severity: 'critical',
-        message: `Attempted to submit payment on a payment page. Financial transactions must be human-initiated.`,
-        suggestion: 'Flag this for human review. Agent must never process payments autonomously.',
-      });
-    }
   }
 
   return violations;

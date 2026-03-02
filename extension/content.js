@@ -151,9 +151,7 @@ function scrapePage() {
   const urlLow = window.location.href.toLowerCase();
   const bodyText = (document.body?.innerText || '').substring(0, 3000).toLowerCase();
   if (/login|sign.?in/i.test(document.title + bodyText.substring(0, 500))) pageType = 'LOGIN';
-  else if (/admin|manage/i.test(urlLow)) pageType = 'ADMIN';
   else if (/confirm|success|submitted/i.test(document.title)) pageType = 'CONFIRMATION';
-  else if (/payment|checkout/i.test(urlLow)) pageType = 'PAYMENT';
   else if (fields.length > 0) pageType = 'QUOTE_FORM';
 
   // ── Errors ──
@@ -171,7 +169,6 @@ function scrapePage() {
   // ── Environment ──
   let environment = 'production';
   if (/test|dev|localhost/i.test(urlLow)) environment = 'test';
-  else if (/staging|stg/i.test(urlLow)) environment = 'staging';
 
   return {
     url: window.location.href,
@@ -182,7 +179,6 @@ function scrapePage() {
     ).join(', ')).substring(0, 2000),
     hasValidationErrors: errorMessages.length > 0,
     errorMessages,
-    hasUnsavedChanges: false,
     timestamp: Date.now(),
   };
 }
@@ -663,7 +659,7 @@ async function handleRunAgent() {
 
       } else if (verdict === 'BLOCK' && !confirmAll) {
         addLogMessage(`🛑 Blocked: ${data.action.description}`, 'warning');
-        if (aType === 'click' || aType === 'navigate') {
+        if (aType === 'click') {
           addLogMessage('🏁 Page complete — submission/navigation requires human action.', 'info');
           break;
         }
@@ -854,8 +850,6 @@ async function handleCommand() {
       } else if (aType === 'fill' || aType === 'select') {
         executeAction(data.action);
         addLogMessage('✅ Action executed.', 'success');
-      } else if (aType === 'navigate') {
-        addLogMessage('🔗 Navigation proposed.', 'info');
       }
     } else if (cmdVerdict === 'BLOCK' && !confirmAll) {
       addLogMessage(`🛑 Guardrail blocked this command!`, 'error');

@@ -41,16 +41,6 @@ export function evaluatePageSafety(
     }
   }
 
-  if (page.pageType === 'ADMIN') {
-    violations.push({
-      policyId: 'page-admin-access',
-      policyName: 'Admin Page Prevention',
-      severity: 'critical',
-      message: `Agent is on an admin page: "${page.title}". This is outside the expected workflow scope.`,
-      suggestion: 'Navigate back to the form flow immediately. Agent must never interact with admin pages.',
-    });
-  }
-
   if (page.pageType === 'CONFIRMATION') {
     const isSubmit = /submit|finalize|process|bind/i.test(action.target.text);
     if (isSubmit) {

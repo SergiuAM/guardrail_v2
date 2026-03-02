@@ -1,15 +1,13 @@
-// ── Page & UI Element Types ──────────────────────────────────────────────────
+// Page & UI Element Types
 
 export type PageType =
   | 'QUOTE_FORM'
   | 'LOGIN'
   | 'ERROR'
   | 'CONFIRMATION'
-  | 'ADMIN'
-  | 'PAYMENT'
   | 'UNKNOWN';
 
-export type Environment = 'production' | 'staging' | 'test' | 'sandbox' | 'unknown';
+export type Environment = 'production' | 'test' | 'unknown';
 
 export interface UIElement {
   id: string;
@@ -31,15 +29,14 @@ export interface PageState {
   buttons: UIElement[];
   links: UIElement[];
   visibleText: string;
-  hasUnsavedChanges?: boolean;
   hasValidationErrors?: boolean;
   errorMessages?: string[];
   timestamp: number;
 }
 
-// ── Action Types ─────────────────────────────────────────────────────────────
+// Action Types
 
-export type ActionType = 'click' | 'fill' | 'select' | 'navigate' | 'submit' | 'wait';
+export type ActionType = 'click' | 'fill' | 'select' | 'submit' | 'wait';
 
 export type RiskLevel = 'safe' | 'low' | 'medium' | 'high' | 'critical';
 
@@ -52,7 +49,7 @@ export interface ProposedAction {
   timestamp: number;
 }
 
-// ── Guardrail Decision Types ─────────────────────────────────────────────────
+// Guardrail Decision Types
 
 export type GuardrailVerdict = 'ALLOW' | 'BLOCK' | 'FLAG';
 
@@ -73,7 +70,7 @@ export interface GuardrailDecision {
   timestamp: number;
 }
 
-// ── Agent Session Context ────────────────────────────────────────────────────
+// Agent Session Context
 
 export interface ActionHistoryEntry {
   action: ProposedAction;
@@ -86,9 +83,7 @@ export interface AgentContext {
   sessionId: string;
   actionHistory: ActionHistoryEntry[];
   currentPage: PageState;
-  previousPages: PageState[];
   filledFields: Record<string, string>;
-  submittedForms: string[];
   startedAt: number;
 }
 

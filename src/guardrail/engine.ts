@@ -10,7 +10,7 @@ import { evaluateSubmission } from './policies/submission-guard';
 import { evaluateStalePage } from './policies/stale-page-guard';
 
 export class GuardrailEngine {
-  private evaluationLog: GuardrailDecision[] = [];
+  evaluationLog: GuardrailDecision[] = [];
 
   evaluate(action: ProposedAction, context: AgentContext): GuardrailDecision {
     const allViolations: PolicyViolation[] = [];
@@ -20,11 +20,11 @@ export class GuardrailEngine {
     allViolations.push(...evaluateLoopRisk(action, context.actionHistory));
     allViolations.push(...evaluatePageSafety(action, context.currentPage));
     allViolations.push(...evaluateSubmission(action, context.currentPage, context));
-    allViolations.push(...evaluateStalePage(action, context.currentPage, context.previousPages));
+    allViolations.push(...evaluateStalePage(action, context.currentPage));
     allViolations.push(...evaluateEnvironment(context.currentPage));
 
     const riskLevel = classifyActionRisk(action, context.currentPage);
-    const verdict = this.determineVerdict(allViolations, riskLevel);
+    const verdict = this.determineVerdict(allViolations);
     const reasoning = this.buildReasoning(allViolations, riskLevel, verdict);
 
     const decision: GuardrailDecision = {
@@ -40,7 +40,7 @@ export class GuardrailEngine {
     return decision;
   }
 
-  private determineVerdict(violations: PolicyViolation[], riskLevel: RiskLevel): GuardrailVerdict {
+  determineVerdict(violations: PolicyViolation[]): GuardrailVerdict {
     if (violations.length === 0) return 'ALLOW';
 
     const hasCritical = violations.some(v => v.severity === 'critical');
@@ -54,7 +54,7 @@ export class GuardrailEngine {
     return 'ALLOW';
   }
 
-  private buildReasoning(
+  buildReasoning(
     violations: PolicyViolation[],
     riskLevel: RiskLevel,
     verdict: GuardrailVerdict
